@@ -1,0 +1,22 @@
+# Dependencies and local tooling
+**/node_modules/
+.vercel/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local output
+*.log
+npm-debug.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Archive files
+*.zip
+
+
