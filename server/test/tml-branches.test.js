@@ -47,3 +47,12 @@ test('TML terminal steps define a pass/fail outcome', () => {
     if (step.type === 'end') assert.equal(typeof step.pass, 'boolean', `${key} must define pass`);
   }
 });
+
+test('Pressure Switch Assembly phase steps are in phase 4 (pneumatic inspection)', () => {
+  const pressureSteps = ['pressure_switch_1', 'pressure_switch_2', 'pressure_switch_3', 'pressure_switch_4', 'pressure_switch_5'];
+  for (const stepKey of pressureSteps) {
+    const step = steps[stepKey];
+    assert.ok(step, `Step ${stepKey} must exist`);
+    assert.equal(step.phase, 4, `${stepKey} should be in phase 4 (Pressure Switch Assembly)`);
+  }
+});

@@ -725,7 +725,7 @@
   }
 
   function tmlStepNeedsMeter(step) {
-    return step && (step.phase === 2 || step.phase === 3 || step.phase === 4);
+    return Boolean(step && (step.phase === 2 || step.phase === 3));
   }
 
   // Meter setup is a physical inspection prerequisite, not a prerequisite for
@@ -736,9 +736,8 @@
     const automaticLocation = getAutomaticTmlLocation(stepId, step);
     const locationInfo = automaticLocation?.suppress
       ? null
-      : automaticLocation?.info || TML_STEP_LOCATION_INFO[stepId]
-        || TML_SECTION_INFO[MAIN_PHASES[step?.phase]?.id];
-    return locationInfo?.locationKey || MAIN_PHASES[step?.phase]?.id || stepId;
+      : automaticLocation?.info || TML_SECTION_INFO[MAIN_PHASES[step?.phase]?.id];
+    return automaticLocation?.key || locationInfo?.locationKey || MAIN_PHASES[step?.phase]?.id || stepId;
   }
 
   // Only these checks explicitly require the TML 8-pin connector to be
@@ -808,14 +807,15 @@
       showTmlGate('meter-location:' + meterLocationKey, meterTitle, meterBody, continueRender);
       return true;
     }
-    if ((step.phase === 4 || step.phase === 5) && !tmlAcknowledgedGates.has('functional:' + stepId)) {
+    const functionalKey = 'functional:' + (MAIN_PHASES[step?.phase]?.id || step.phase);
+    if (step.phase === 5 && !tmlAcknowledgedGates.has(functionalKey)) {
       const functionalTitle = typeof t === 'function' ? t('tml_req_safety') : 'TML Functional-Test Safety Gate';
       const functionalBody = '<strong>' + (typeof t === 'function' ? t('pd_safety_head') : 'Confirm the test area is safe:') + '</strong><ul>'
         + '<li>' + (typeof t === 'function' ? t('pd_safety1') : 'Use wheel chocks.') + '</li>'
         + '<li>' + (typeof t === 'function' ? t('pd_safety3') : 'Ensure the vehicle is stable before testing.') + '</li>'
         + '<li>' + (typeof t === 'function' ? t('pd_safety4') : 'Keep personnel clear of rotating wheels and shafts.') + '</li>'
         + '<li>' + (typeof t === 'function' ? t('pd_safety5') : 'Remove tools and rags from the underbody area.') + '</li></ul>';
-      showTmlGate('functional:' + stepId, functionalTitle, functionalBody, continueRender);
+      showTmlGate(functionalKey, functionalTitle, functionalBody, continueRender);
       return true;
     }
     return false;
