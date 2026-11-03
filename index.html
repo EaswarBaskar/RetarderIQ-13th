@@ -455,6 +455,13 @@
           <div class="form-section-title" id="vehSectionTitle" data-i18n="veh_details">Vehicle Details</div>
           <div class="form-grid">
             <div class="form-group">
+              <label for="travelsName"><span data-i18n="travels_name">Travels / Fleet Name</span> <span
+                  aria-hidden="true">*</span></label>
+              <input id="travelsName" name="travelsName" data-i18n-placeholder="travels_placeholder"
+                placeholder="e.g. SRS Travels / VRL / Private Fleet" required aria-required="true" autocomplete="organization">
+              <div class="validation-message" id="val-travelsName"></div>
+            </div>
+            <div class="form-group">
               <label for="vehReg"><span data-i18n="reg_no">Registration No</span> <span
                   aria-hidden="true">*</span></label>
               <input id="vehReg" name="vehReg" placeholder="TN01AB1234" required aria-required="true" autocomplete="off"

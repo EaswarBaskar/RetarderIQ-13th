@@ -355,6 +355,7 @@ function isRegValid(val) {
         const type = document.getElementById("techType")?.value?.trim();
         const city = document.getElementById("city")?.value?.trim();
         const state = document.getElementById("state")?.value?.trim();
+        const travelsName = document.getElementById("travelsName")?.value?.trim();
         const regNo = document.getElementById("vehReg")?.value?.trim();
         const odometer = document.getElementById("odometer")?.value?.trim();
         const model = document.getElementById("vehModel")?.value?.trim();
@@ -367,6 +368,7 @@ function isRegValid(val) {
         if (!type) { alert(t('alert_tech_type')); document.getElementById("techType").focus(); return; }
         if (!city) { alert(t('alert_city')); document.getElementById("city").focus(); return; }
         if (!state) { alert(t('alert_state')); document.getElementById("state").focus(); return; }
+        if (!travelsName) { alert(typeof t === 'function' ? (t('alert_travels_name') || 'Please enter Travels / Fleet Name') : 'Please enter Travels / Fleet Name'); document.getElementById("travelsName")?.focus(); return; }
         if (!regNo) { alert(t('alert_reg_no')); document.getElementById("vehReg").focus(); return; }
         if (!odometer) { alert(t('alert_odometer')); document.getElementById("odometer").focus(); return; }
         if (!model) { alert(t('alert_model')); document.getElementById("vehModel").focus(); return; }
@@ -573,7 +575,7 @@ function handleBackToReg() {
     const advice = $("#advice");
     const resultSummary = $("#resultSummary");
     const registrationDraftKey = 'riq_registration_draft_v1';
-    const registrationFieldIds = ['techName', 'techPhone', 'dealerName', 'techType', 'city', 'state', 'vehReg', 'odometer', 'chassisNo', 'vehModel'];
+    const registrationFieldIds = ['techName', 'techPhone', 'dealerName', 'techType', 'city', 'state', 'travelsName', 'vehReg', 'odometer', 'chassisNo', 'vehModel'];
     function saveRegistrationDraft() {
       try {
         const values = {};
@@ -642,7 +644,7 @@ function handleBackToReg() {
       try { localStorage.removeItem(registrationDraftKey); } catch (error) { console.warn('[Registration] Local draft clear failed:', error); }
     };
     window.clearNewDiagnosticVehicleFields = function () {
-      ['vehReg', 'odometer', 'chassisNo'].forEach(id => {
+      ['travelsName', 'vehReg', 'odometer', 'chassisNo'].forEach(id => {
         const element = document.getElementById(id);
         if (element) element.value = '';
       });

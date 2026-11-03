@@ -39,3 +39,23 @@ for (const [name, steps] of Object.entries(data).filter(([, value]) => Array.isA
     }
   });
 }
+
+test('APS stages 1 to 4 evaluate consecutively without premature abort', () => {
+  const steps = data.originalSteps;
+  const s1 = steps.find(s => s.key === 'aps_stage1');
+  const s2 = steps.find(s => s.key === 'aps_stage2');
+  const s3 = steps.find(s => s.key === 'aps_stage3');
+  const s4 = steps.find(s => s.key === 'aps_stage4');
+
+  assert.equal(s1.onNo.next, 'aps_stage2', 'aps_stage1 onNo should advance to aps_stage2');
+  assert.equal(s1.onNo.stop, undefined, 'aps_stage1 onNo should not prematurely abort');
+
+  assert.equal(s2.onNo.next, 'aps_stage3', 'aps_stage2 onNo should advance to aps_stage3');
+  assert.equal(s2.onNo.stop, undefined, 'aps_stage2 onNo should not prematurely abort');
+
+  assert.equal(s3.onNo.next, 'aps_stage4', 'aps_stage3 onNo should advance to aps_stage4');
+  assert.equal(s3.onNo.stop, undefined, 'aps_stage3 onNo should not prematurely abort');
+
+  assert.equal(s4.onYes.next, 'rb_precheck_seated', 'aps_stage4 onYes should advance to Relay Box');
+  assert.equal(s4.onNo.stop, true, 'aps_stage4 onNo terminates APS evaluation');
+});

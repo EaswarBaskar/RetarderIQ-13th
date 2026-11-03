@@ -522,7 +522,7 @@ function hide(el) {
       })),
       evidence: { ...(window._stepEvidence || {}) },
       channelChecks: { ...(window._channelChecks || {}) },
-      registration: ['techName', 'techPhone', 'dealerName', 'city', 'state', 'vehReg', 'odometer', 'chassisNo', 'vehModel']
+      registration: ['techName', 'techPhone', 'dealerName', 'city', 'state', 'travelsName', 'vehReg', 'odometer', 'chassisNo', 'vehModel']
         .reduce((values, id) => {
           const element = document.getElementById(id);
           values[id] = element ? element.value : '';
@@ -870,7 +870,7 @@ function hide(el) {
 
   window.resumeServerDiagnostic = async function (item) {
     const p = item.payload || {};
-    const fields = { techName:'FSE Name', techPhone:'Technician Phone', dealerName:'Dealer / Location', city:'City', state:'State', vehReg:'Vehicle Registration No.', odometer:'Odometer Km', chassisNo:'Chassis No.', vehModel:'Model' };
+    const fields = { techName:'FSE Name', techPhone:'Technician Phone', dealerName:'Dealer / Location', city:'City', state:'State', travelsName:'Travels Name', vehReg:'Vehicle Registration No.', odometer:'Odometer Km', chassisNo:'Chassis No.', vehModel:'Model' };
     Object.entries(fields).forEach(([id, key]) => { const element = document.getElementById(id); if (element && p[key] !== undefined) element.value = p[key]; });
     window._activeDiagnosticCaseId = item.id;
     window._activeDiagnosticCaseNumber = item.case_number;
@@ -1209,6 +1209,7 @@ function hide(el) {
       'Dealer / Location': value('dealerName'),
       'City': value('city'),
       'State': value('state'),
+      'Travels Name': value('travelsName'),
       'Vehicle Registration No.': value('vehReg'),
       'Odometer Km': Number(value('odometer').replace(/[^0-9.]/g, '')) || 0,
       'Chassis No.': value('chassisNo'),
@@ -1458,6 +1459,7 @@ function hide(el) {
     const dealerName = esc(document.getElementById("dealerName")?.value || "-");
     const city       = esc(document.getElementById("city")?.value       || "-");
     const state      = esc(document.getElementById("state")?.value      || "-");
+    const travelsName = esc(document.getElementById("travelsName")?.value || "-");
     const vehReg     = esc(document.getElementById("vehReg")?.value     || "-");
     const odometer   = esc(document.getElementById("odometer")?.value   || "-");
     const chassisNo  = esc(document.getElementById("chassisNo")?.value  || "-");
@@ -1598,6 +1600,7 @@ function hide(el) {
       "Customer": customer,
       "Vehicle Manufacturer": vehicleManufacturer,
       "Model": model,
+      "Travels Name": travelsName,
       "Vehicle Registration No.": vehReg,
       "Emission Standard": emissionStandard,
       "Complaint Type": complaintType,
@@ -1660,7 +1663,7 @@ function hide(el) {
             <div style="font-size:14.5px; color:#0c4a6e; line-height:1.75;">
               ${typeof t === 'function' ? t('odo_recommendation_text') : '...'}
             </div>
-            ${window.RIQReportRenderer ? window.RIQReportRenderer.renderOrderActions('96943110', { brand: 'BIPL', caseNumber: orderCaseNumber, technicianName: techName, phoneNumber: techPhone, technicianType: techType, region, location: `${city}, ${state}`, registrationNo: vehReg, chassisNo, model: vehModel, dealer: dealerName }) : ''}
+            ${window.RIQReportRenderer ? window.RIQReportRenderer.renderOrderActions('96943110', { brand: 'BIPL', caseNumber: orderCaseNumber, technicianName: techName, phoneNumber: techPhone, technicianType: techType, region, location: `${city}, ${state}`, registrationNo: vehReg, travelsName, chassisNo, model: vehModel, dealer: dealerName }) : ''}
           </div>
         `;
     }
@@ -1727,6 +1730,11 @@ function hide(el) {
         brand = 'SIGNAL WIRING HARNESS A / B';
         partNo = '96503116 / 96503120';
       }
+      if (/Multiple Air Pressure Switch/i.test(failedReason)) {
+        brand = 'AIR PRESSURE SWITCHES';
+        const extractedParts = [...failedReason.matchAll(/Part No:\s*([^\]),.\s]+)/gi)].map(m => m[1]);
+        if (extractedParts.length) partNo = extractedParts.join(' / ');
+      }
 
       const partInfoMatch = translatedReason.match(/(?:replace|change)\s+(?:with\s+)?(.*?)\s+Part No:\s*(\S+)/i);
       if (partInfoMatch && partNo === "N/A") {
@@ -1753,7 +1761,7 @@ function hide(el) {
                 </div>
             </div>
         </div>
-        ${window.RIQReportRenderer ? window.RIQReportRenderer.renderOrderActions(partNo, { brand, caseNumber: orderCaseNumber, technicianName: techName, phoneNumber: techPhone, technicianType: techType, region, location: `${city}, ${state}`, registrationNo: vehReg, chassisNo, model: vehModel, dealer: dealerName }) : ''}
+        ${window.RIQReportRenderer ? window.RIQReportRenderer.renderOrderActions(partNo, { brand, caseNumber: orderCaseNumber, technicianName: techName, phoneNumber: techPhone, technicianType: techType, region, location: `${city}, ${state}`, registrationNo: vehReg, travelsName, chassisNo, model: vehModel, dealer: dealerName }) : ''}
       `;
     }
 
@@ -1770,6 +1778,7 @@ function hide(el) {
                 </div>
                 <div>
                     <h4 style="margin:0 0 12px; color:#0B5DAA; font-size:14px; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid #dbeafe; padding-bottom:4px;">${t('rep_veh_details')}</h4>
+                    <p style="margin:4px 0; font-size:15px;"><strong>${t('rep_travels_name') || 'Travels / Fleet'}:</strong> ${travelsName}</p>
                     <p style="margin:4px 0; font-size:15px;"><strong>${t('rep_reg_no')}:</strong> ${vehReg}</p>
                     <p style="margin:4px 0; font-size:15px;"><strong>${t('rep_manufacturer')}:</strong> ${esc(vehicleManufacturer)}</p>
                     <p style="margin:4px 0; font-size:15px;"><strong>${t('rep_model')}:</strong> ${vehModel}</p>
@@ -2997,6 +3006,38 @@ function hide(el) {
       window._nextKeyQueue = branch.jumpTo || branch.next;
       showBanner(branch.badge || "step-action", branchReason);
       return; // Do not render next step yet; wait for OK click
+    }
+
+    // APS 4-Stage Multi-Switch Evaluation: evaluate complete manifold before terminating
+    if (step.key === 'aps_stage4') {
+      const s1 = window._stepAnswers['aps_stage1'];
+      const s2 = window._stepAnswers['aps_stage2'];
+      const s3 = window._stepAnswers['aps_stage3'];
+      const s4 = answerYes;
+      const failedStages = [];
+      if (s1 === false) failedStages.push(1);
+      if (s2 === false) failedStages.push(2);
+      if (s3 === false) failedStages.push(3);
+      if (!s4) failedStages.push(4);
+
+      if (failedStages.length > 0) {
+        const section = stepToRibbon['aps_stage4'];
+        markSectionStatus(section, "fail");
+        let compositeReason = '';
+        if (failedStages.length === 1) {
+          compositeReason = `aps_stage${failedStages[0]}_fail`;
+        } else {
+          const vecv = window.SELECTED_EMISSION === 'VECV';
+          const apsPartMap = vecv
+            ? { 1: '96953043', 2: '96953044', 3: '96953045', 4: '96953046' }
+            : { 1: '96633385', 2: '96633386', 3: '96633312', 4: '96633313' };
+          const stageDetails = failedStages.map(s => `Stage ${s} [Part No: ${apsPartMap[s]}]`).join(', ');
+          compositeReason = `Multiple Air Pressure Switch failures detected: ${stageDetails}. Replace faulty switches and inspect manifold passages.`;
+        }
+        window._pendingTerminal = { reason: compositeReason, outcome: "FAULT FOUND" };
+        showBanner("step-fail", compositeReason);
+        return;
+      }
     }
 
     // If this answer causes a stop, end the session

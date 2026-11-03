@@ -34,7 +34,7 @@
         ? '<p class="recommendation reference-part"><strong>' + escapeHtml(referencePartLabel) + ':</strong> ' + escapeHtml(entry.referenceParts.map(item => `${item.brand} ${item.number}`).join(' / ')) + '</p>'
         : '';
       const orderActions = part && part !== '-'
-        ? renderOrderActions(part, { brand: entry.brand, technicianName: options.technicianName || options.engineerName, phoneNumber: options.phoneNumber || options.engineerPhone, caseNumber: options.caseNumber, registrationNo: options.registrationNo, chassisNo: options.chassisNo, model: options.model, dealer: options.dealer, region: options.region, location: options.location, technicianType: options.technicianType })
+        ? renderOrderActions(part, { brand: entry.brand, technicianName: options.technicianName || options.engineerName, phoneNumber: options.phoneNumber || options.engineerPhone, caseNumber: options.caseNumber, registrationNo: options.registrationNo, travelsName: options.travelsName, chassisNo: options.chassisNo, model: options.model, dealer: options.dealer, region: options.region, location: options.location, technicianType: options.technicianType })
         : '';
       return '<div class="fault-entry"><div class="fault-text">' + (title ? '<strong>' + title + '</strong><br>' : '') + action + '</div>' + (part && part !== '-' ? '<p class="recommendation"><strong>' + escapeHtml(recommendedPartLabel) + ':</strong> ' + escapeHtml(entry.brand ? entry.brand + ' ' + part : part) + '</p>' + orderActions : '') + references + '</div>';
     }).join('');
@@ -47,6 +47,7 @@
     const phoneNumber = escapeHtml(options.phoneNumber || options.engineerPhone || '-');
     const orderContext = {
       caseNumber: options.caseNumber || '',
+      travelsName: options.travelsName || '',
       registrationNo: options.registrationNo || '',
       chassisNo: options.chassisNo || '',
       model: options.model || '',

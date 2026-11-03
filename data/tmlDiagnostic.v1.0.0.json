@@ -383,7 +383,7 @@
       "questionKey": "tml_not_engaging_q",
       "type": "yes_no",
       "yes": "end_success",
-      "no": "end_success"
+      "no": "end_retarder_malfunction"
     },
     "retarder_trial_2": {
       "phase": 5,
@@ -887,8 +887,14 @@
       "actionKey": "tml_transil_ecs_fault_action",
       "pass": false,
       "recommendedParts": [
-        { "brand": "BIPL", "number": "96310308" },
-        { "brand": "TML", "number": "516554800102" }
+        {
+          "brand": "BIPL",
+          "number": "96310308"
+        },
+        {
+          "brand": "TML",
+          "number": "516554800102"
+        }
       ]
     },
     "blink_17_analysis_req": {
@@ -951,8 +957,14 @@
       "actionKey": "tml_transil_ecs_fault_action",
       "pass": false,
       "recommendedParts": [
-        { "brand": "BIPL", "number": "96310308" },
-        { "brand": "TML", "number": "516554800102" }
+        {
+          "brand": "BIPL",
+          "number": "96310308"
+        },
+        {
+          "brand": "TML",
+          "number": "516554800102"
+        }
       ]
     },
     "blink_18_analysis_req": {
@@ -1015,8 +1027,14 @@
       "actionKey": "tml_transil_ecs_fault_action",
       "pass": false,
       "recommendedParts": [
-        { "brand": "BIPL", "number": "96310308" },
-        { "brand": "TML", "number": "516554800102" }
+        {
+          "brand": "BIPL",
+          "number": "96310308"
+        },
+        {
+          "brand": "TML",
+          "number": "516554800102"
+        }
       ]
     },
     "blink_19_analysis_req": {
@@ -1079,8 +1097,14 @@
       "actionKey": "tml_transil_ecs_fault_action",
       "pass": false,
       "recommendedParts": [
-        { "brand": "BIPL", "number": "96310308" },
-        { "brand": "TML", "number": "516554800102" }
+        {
+          "brand": "BIPL",
+          "number": "96310308"
+        },
+        {
+          "brand": "TML",
+          "number": "516554800102"
+        }
       ]
     },
     "blink_20_analysis_req": {
@@ -1100,6 +1124,13 @@
           "number": "516554600196"
         }
       ]
+    },
+    "end_retarder_malfunction": {
+      "phase": 5,
+      "titleKey": "tml_end_malfunction_title",
+      "type": "end",
+      "actionKey": "tml_end_malfunction_action",
+      "pass": false
     }
   },
   "blinkCodes": {

@@ -152,7 +152,7 @@
     veh_pin8: 'Set the multimeter to continuity or resistance mode with ignition OFF. Check between Pin 8 (Black) and a clean vehicle negative/chassis point. Confirm a good low-resistance ground path.',
     retarder_trial_1: 'Perform this trial only in a safe controlled area with the vehicle secured and the required speed/air-pressure conditions available.',
     retarder_trial_2: 'Use the specified road-test conditions. Confirm the retarder engages smoothly and produces the expected braking effect before selecting YES.',
-    retarder_not_engaging: 'Verify the retarder switch, vehicle speed signal, warning indicators, and air supply before repeating the functional test.',
+    retarder_not_engaging: 'Disconnect and securely reconnect the EMR/ECS box connectors, power harness, and 8-pin socket. Check for loose pins, dirt, or moisture, then conduct a road trial at > 5 km/h.',
     pressure_switch_1: 'Inspect the pressure hose, fittings, pressure block, and switch for leaks, kinks, cracks, or blockage. Repair any visible pneumatic fault before selecting YES.',
     pressure_switch_2: 'With the system safe, inspect the pressure-switch connector lock, terminals, wiring, and harness for looseness, corrosion, water entry, or damage.',
     pressure_switch_3: 'Check the pressure block/manifold for restricted passages and air leakage. Confirm the pneumatic path is clear and sealed.',
@@ -393,7 +393,14 @@
       questionKey: 'tml_not_engaging_q',
       type: 'yes_no',
       yes: 'end_success',
-      no: 'end_success'
+      no: 'end_retarder_malfunction'
+    },
+    end_retarder_malfunction: {
+      phase: 5,
+      titleKey: 'tml_end_malfunction_title',
+      type: 'end',
+      actionKey: 'tml_end_malfunction_action',
+      pass: false
     },
     retarder_trial_2: {
       phase: 5,

@@ -331,19 +331,31 @@ const originalSteps = [
     key: "aps_stage1",
     q: "At 0.20 bar (3 psi) brake pressure, does APS stage 1 output 24V on C1 / pin 1?",
     onYes: { badge: "step-pass", next: "aps_stage2" },
-    onNo: { badge: "step-fail", stop: true, reason: "aps_stage1_fail" }
+    onNo: {
+      badge: "step-warn",
+      next: "aps_stage2",
+      reason: "aps_stage1_continue"
+    }
   },
   {
     key: "aps_stage2",
     q: "At 0.34 bar (5 psi) brake pressure, does APS stage 2 output 24V on C2 / pin 2?",
     onYes: { badge: "step-pass", next: "aps_stage3" },
-    onNo: { badge: "step-fail", stop: true, reason: "aps_stage2_fail" }
+    onNo: {
+      badge: "step-warn",
+      next: "aps_stage3",
+      reason: "aps_stage2_continue"
+    }
   },
   {
     key: "aps_stage3",
     q: "At 0.47 bar (7 psi) brake pressure, does APS stage 3 output 24V on C3 / pin 3?",
     onYes: { badge: "step-pass", next: "aps_stage4" },
-    onNo: { badge: "step-fail", stop: true, reason: "aps_stage3_fail" }
+    onNo: {
+      badge: "step-warn",
+      next: "aps_stage4",
+      reason: "aps_stage3_continue"
+    }
   },
   {
     key: "aps_stage4",

@@ -56,3 +56,14 @@ test('Pressure Switch Assembly phase steps are in phase 4 (pneumatic inspection)
     assert.equal(step.phase, 4, `${stepKey} should be in phase 4 (Pressure Switch Assembly)`);
   }
 });
+
+test('retarder_not_engaging branches to pass on YES and malfunction escalation on NO', () => {
+  const step = steps['retarder_not_engaging'];
+  assert.ok(step, 'retarder_not_engaging must exist');
+  assert.equal(step.yes, 'end_success');
+  assert.equal(step.no, 'end_retarder_malfunction');
+  const endMalfunction = steps['end_retarder_malfunction'];
+  assert.ok(endMalfunction, 'end_retarder_malfunction must exist');
+  assert.equal(endMalfunction.type, 'end');
+  assert.equal(endMalfunction.pass, false);
+});

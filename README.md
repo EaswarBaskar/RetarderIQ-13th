@@ -52,10 +52,19 @@ For detailed step-by-step instructions, see [`DEPLOY.md`](file:///DEPLOY.md).
 
 ## 💻 Local Development
 
-### Frontend
+### Frontend (Technician PWA)
 You can open `index.html` directly in a browser, or run a local static web server:
 ```powershell
 npx serve .
+```
+
+### Admin Dashboard (React + shadcn/ui + Tremor)
+The admin panel is built with React, Vite, Tailwind CSS, shadcn/ui components, and Tremor/Recharts in `admin-ui/`:
+```powershell
+cd admin-ui
+npm install
+npm run build      # Compiles production bundle directly into root admin.html
+npm run dev        # Starts Vite dev server with proxy to backend on port 5173
 ```
 
 ### Backend API
@@ -76,8 +85,10 @@ Access:
 ## 📁 Project Structure
 
 ```text
-├── admin.html               # Admin dashboard interface
-├── index.html               # Main diagnostic application
+├── admin.html               # Compiled Admin dashboard interface (React + shadcn/ui + Tremor)
+├── admin.legacy.html        # Safety backup of original legacy admin HTML
+├── admin-ui/                # Source code for modern React Admin portal
+├── index.html               # Main diagnostic application (vanilla PWA, untouched)
 ├── manifest.json            # PWA manifest
 ├── service-worker.js        # Offline PWA service worker
 ├── vercel.json              # Vercel routing configuration

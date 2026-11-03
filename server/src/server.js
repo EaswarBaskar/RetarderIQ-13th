@@ -599,6 +599,7 @@ app.post('/api/part-orders', rateLimit({ max: 20 }), requireAuth, asyncHandler(a
     technicianName: String(body.technicianName || body.engineerName || '').trim(),
     phoneNumber: String(body.phoneNumber || body.engineerPhone || '').trim(),
     technicianType: String(body.technicianType || '').trim(),
+    travelsName: String(body.travelsName || '').trim(),
     registrationNo: String(body.registrationNo || '').trim(),
     chassisNo: String(body.chassisNo || '').trim(),
     model: String(body.model || '').trim(),
@@ -808,7 +809,7 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
     WHEN 'Madhya Pradesh' THEN 'West' WHEN 'Gujarat' THEN 'West' WHEN 'Goa' THEN 'West' WHEN 'Maharashtra' THEN 'West'
     WHEN 'Andhra Pradesh' THEN 'South' WHEN 'Karnataka' THEN 'South' WHEN 'Kerala' THEN 'South' WHEN 'Tamil Nadu' THEN 'South' WHEN 'Telangana' THEN 'South' WHEN 'Puducherry' THEN 'South'
     ELSE 'Other' END)`;
-  if (search) add(`concat_ws(' ', case_number, payload->>'Diagnostic Case ID', payload->>'Chassis No.', payload->>'Vehicle Registration No.', payload->>'Dealer / Location', payload->>'FSE Name', payload->>'Suspected Product') ILIKE '%' || ? || '%'`, search);
+  if (search) add(`concat_ws(' ', case_number, payload->>'Diagnostic Case ID', payload->>'Travels Name', payload->>'Chassis No.', payload->>'Vehicle Registration No.', payload->>'Dealer / Location', payload->>'FSE Name', payload->>'Suspected Product') ILIKE '%' || ? || '%'`, search);
   if (status) { values.push(status, status); where.push(`(payload->>'Diagnostic Status' = $${values.length - 1} OR payload->>'Lifecycle Status' = $${values.length})`); }
   if (region) add(`lower(${regionExpression}) = lower(?)`, region);
   if (manufacturer) add(`lower(payload->>'Vehicle Manufacturer') = lower(?)`, manufacturer);
@@ -835,6 +836,7 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
               'Diagnostic Language Name', payload->>'Diagnostic Language Name',
               'Admin Report Language', COALESCE(payload->>'Admin Report Language', 'English'),
               'FSE Name', payload->>'FSE Name',
+              'Travels Name', payload->>'Travels Name',
               'Vehicle Registration No.', payload->>'Vehicle Registration No.',
               'Chassis No.', payload->>'Chassis No.',
               'Dealer / Location', payload->>'Dealer / Location',

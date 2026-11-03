@@ -312,9 +312,9 @@
         "next": "aps_stage2"
       },
       "onNo": {
-        "badge": "step-fail",
-        "stop": true,
-        "reason": "aps_stage1_fail"
+        "badge": "step-warn",
+        "next": "aps_stage2",
+        "reason": "aps_stage1_continue"
       }
     },
     {
@@ -325,9 +325,9 @@
         "next": "aps_stage3"
       },
       "onNo": {
-        "badge": "step-fail",
-        "stop": true,
-        "reason": "aps_stage2_fail"
+        "badge": "step-warn",
+        "next": "aps_stage3",
+        "reason": "aps_stage2_continue"
       }
     },
     {
@@ -338,9 +338,9 @@
         "next": "aps_stage4"
       },
       "onNo": {
-        "badge": "step-fail",
-        "stop": true,
-        "reason": "aps_stage3_fail"
+        "badge": "step-warn",
+        "next": "aps_stage4",
+        "reason": "aps_stage3_continue"
       }
     },
     {
