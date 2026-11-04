@@ -378,6 +378,8 @@ export function getMockSummary(): DiagnosticSummary {
     faults,
     working,
     incomplete,
+    totalHours: 48.5,
+    averageCompletionHours: 0.35,
     open: 2,
     inProgress: 1,
     completed: working,

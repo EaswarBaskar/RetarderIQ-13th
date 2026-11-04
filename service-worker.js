@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retarder-iq-shell-v116';
+const CACHE_NAME = 'retarder-iq-shell-v117';
 const SHELL = [
   '/',
   '/index.html',
@@ -42,7 +42,11 @@ const SHELL = [
   '/asset/albs6/ecuspeedboxbs6.webp',
   '/asset/optimized/airpressureswitch.jpg',
   '/asset/optimized/relaybox1.png',
-  '/asset/optimized/retarder.png'
+  '/asset/optimized/retarder.png',
+  '/asset/vecv/airpressureswitchvecv.webp',
+  '/asset/vecv/customermatingvecv.webp',
+  '/asset/vecv/ecuspeedboxvecv.webp',
+  '/asset/vecv/retarderswitchvecv.webp'
 ];
 
 self.addEventListener('install', event => {

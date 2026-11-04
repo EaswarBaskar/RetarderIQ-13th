@@ -72,6 +72,9 @@
         }
         hideAllSections();
         show(id);
+        if (id === 'emissionSelect' && typeof window.showManufacturerSelect === 'function') {
+          window.showManufacturerSelect();
+        }
         // Keep language switching available while a diagnostic is in progress,
         // including diagnostics resumed directly after a browser refresh.
         const globalLanguageControl = document.getElementById('globalLanguageControl');
@@ -211,6 +214,18 @@
           updateGlobalBackButton();
           return;
         }
+        if (screen === 'emissionSelect') {
+          const ashokOptions = document.getElementById('ashokEmissionOptions');
+          const vehicleModelGroups = document.getElementById('vehicleModelGroups');
+          if ((ashokOptions && ashokOptions.style.display !== 'none') || (vehicleModelGroups && vehicleModelGroups.style.display !== 'none')) {
+            if (typeof window.showManufacturerSelect === 'function') window.showManufacturerSelect();
+            return;
+          }
+        }
+        if (screen === 'regCard' && (window.SELECTED_EMISSION === 'VECV' || window.SELECTED_EMISSION === 'BS-IV' || window.SELECTED_EMISSION === 'BS-VI')) {
+          showSection('emissionSelect');
+          return;
+        }
         const target = globalBackTargets[screen];
         if (target) showSection(target);
       }
@@ -229,13 +244,13 @@
         if (vecvOption) vecvOption.style.display = 'none';
         const vecvManufacturerButton = document.querySelector('[onclick="showVehicleModelGroup(\'VECV\')"]');
         if (vecvManufacturerButton) {
-          vecvManufacturerButton.hidden = true;
-          vecvManufacturerButton.style.setProperty('display', 'none', 'important');
+          vecvManufacturerButton.hidden = false;
+          vecvManufacturerButton.style.removeProperty('display');
         }
         const vecvModels = document.getElementById('vecvModelGroup');
         if (vecvModels) {
-          vecvModels.hidden = true;
-          vecvModels.style.setProperty('display', 'none', 'important');
+          vecvModels.hidden = false;
+          vecvModels.style.removeProperty('display');
         }
         const initialLanguage = typeof getLang === 'function' ? getLang() : 'en';
         window._selectedInitialLanguage = initialLanguage;
@@ -275,10 +290,20 @@ function showVehicleModelGroup(manufacturer) {
   if (!wrapper) return;
   if (manufacturerSelect) manufacturerSelect.style.display = 'none';
   wrapper.style.display = 'block';
-  if (vecv) vecv.style.display = manufacturer === 'VECV' ? 'grid' : 'none';
-  if (tml) tml.style.display = manufacturer === 'TML' ? 'grid' : 'none';
+  if (vecv) { vecv.hidden = manufacturer !== 'VECV'; vecv.style.display = manufacturer === 'VECV' ? 'grid' : 'none'; }
+  if (tml) { tml.hidden = manufacturer !== 'TML'; tml.style.display = manufacturer === 'TML' ? 'grid' : 'none'; }
 }
 window.showVehicleModelGroup = showVehicleModelGroup;
+
+function showManufacturerSelect() {
+  const wrapper = document.getElementById('vehicleModelGroups');
+  const ashok = document.getElementById('ashokEmissionOptions');
+  const manufacturerSelect = document.getElementById('manufacturerSelect');
+  if (wrapper) wrapper.style.display = 'none';
+  if (ashok) ashok.style.display = 'none';
+  if (manufacturerSelect) manufacturerSelect.style.display = 'grid';
+}
+window.showManufacturerSelect = showManufacturerSelect;
 
 function selectTmlVehicleModel(model) {
   window.SELECTED_TML_MODEL = model;
@@ -419,6 +444,10 @@ function isRegValid(val) {
       }
 
       function handleBackToComplaint() {
+        if (window.SELECTED_EMISSION === 'VECV' || window.SELECTED_EMISSION === 'BS-IV' || window.SELECTED_EMISSION === 'BS-VI') {
+          showSection('emissionSelect');
+          return;
+        }
         const regCard = document.getElementById('regCard');
         const complaintCard = document.getElementById('complaintCard');
 
@@ -872,6 +901,8 @@ function handleBackToReg() {
       const ashokEmissionOptions = document.getElementById('ashokEmissionOptions');
       if (manufacturerSelect) manufacturerSelect.style.display = 'grid';
       if (ashokEmissionOptions) ashokEmissionOptions.style.display = 'none';
+      const vehicleModelGroups = document.getElementById('vehicleModelGroups');
+      if (vehicleModelGroups) vehicleModelGroups.style.display = 'none';
       if (typeof window.applyAssignedVehicle === 'function' && window.applyAssignedVehicle()) return;
       applyPreferredManufacturer();
       showSection('emissionSelect');

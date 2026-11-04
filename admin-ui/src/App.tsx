@@ -230,6 +230,7 @@ export const App: React.FC = () => {
         {/* Top KPIs */}
         <KpiCards
           summary={summary}
+          cases={allCases.length > 0 ? allCases : cases}
           onFilterIncomplete={() => {
             handleFilterChange({ ...activeFilters, status: 'INCOMPLETE' });
           }}
