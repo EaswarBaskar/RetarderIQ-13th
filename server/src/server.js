@@ -809,7 +809,7 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
     WHEN 'Madhya Pradesh' THEN 'West' WHEN 'Gujarat' THEN 'West' WHEN 'Goa' THEN 'West' WHEN 'Maharashtra' THEN 'West'
     WHEN 'Andhra Pradesh' THEN 'South' WHEN 'Karnataka' THEN 'South' WHEN 'Kerala' THEN 'South' WHEN 'Tamil Nadu' THEN 'South' WHEN 'Telangana' THEN 'South' WHEN 'Puducherry' THEN 'South'
     ELSE 'Other' END)`;
-  if (search) add(`concat_ws(' ', case_number, payload->>'Diagnostic Case ID', payload->>'Travels Name', payload->>'Chassis No.', payload->>'Vehicle Registration No.', payload->>'Dealer / Location', payload->>'FSE Name', payload->>'Suspected Product') ILIKE '%' || ? || '%'`, search);
+  if (search) add(`concat_ws(' ', case_number, payload->>'Diagnostic Case ID', payload->>'Travels Name', payload->>'Chassis No.', payload->>'Vehicle Registration No.', payload->>'Dealer / Location', payload->>'FSE Name', payload->>'Suspected Product', payload->>'Model', payload->>'Vehicle Manufacturer', payload->>'City', payload->>'State', payload->>'Technician Phone') ILIKE '%' || ? || '%'`, search);
   if (status) { values.push(status, status); where.push(`(payload->>'Diagnostic Status' = $${values.length - 1} OR payload->>'Lifecycle Status' = $${values.length})`); }
   if (region) add(`lower(${regionExpression}) = lower(?)`, region);
   if (manufacturer) add(`lower(payload->>'Vehicle Manufacturer') = lower(?)`, manufacturer);
@@ -829,38 +829,10 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
   const listValues = [...values, pageSize, offset];
   const result = await pool.query(
     `SELECT id, case_number, created_at, forwarded_at, forward_status, forward_error, forward_attempts,
-            jsonb_build_object(
-              'Diagnostic Case ID', case_number,
-              'Diagnostic Status', payload->>'Diagnostic Status',
-              'Diagnostic Language', payload->>'Diagnostic Language',
-              'Diagnostic Language Name', payload->>'Diagnostic Language Name',
-              'Admin Report Language', COALESCE(payload->>'Admin Report Language', 'English'),
-              'FSE Name', payload->>'FSE Name',
-              'Travels Name', payload->>'Travels Name',
-              'Vehicle Registration No.', payload->>'Vehicle Registration No.',
-              'Chassis No.', payload->>'Chassis No.',
-              'Dealer / Location', payload->>'Dealer / Location',
-              'Recommended Part No.', payload->>'Recommended Part No.',
-              'Lifecycle Status', payload->>'Lifecycle Status',
-              'Replacement Status', payload->>'Replacement Status',
-              'Verification Status', payload->>'Verification Status',
-              'Actual Part No.', payload->>'Actual Part No.',
-              'Suspected Product', payload->>'Suspected Product',
-              'Vehicle Manufacturer', payload->>'Vehicle Manufacturer',
-              'Model', payload->>'Model',
-              'Technician Phone', payload->>'Technician Phone',
-              'Region', payload->>'Region',
-              'State', payload->>'State',
-              'Kms & Date of Sale', payload->>'Kms & Date of Sale',
-              'Odometer Km', payload->>'Odometer Km',
-              'Odometer', payload->>'Odometer',
-              'Complaint Attended on', payload->>'Complaint Attended on',
-              'Repeat complaint? Yes / No', payload->>'Repeat complaint? Yes / No',
-              'Diagnostic Feedback', payload->'Diagnostic Feedback'
-            ) AS payload
+            (payload - ARRAY['GPS Latitude', 'GPS Longitude', 'GPS Address', 'Step Evidence']) || jsonb_build_object('Diagnostic Case ID', case_number) AS payload
      FROM diagnostic_cases ${clause}
      ORDER BY created_at DESC
-     LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+     LIMIT ${listValues.length - 1} OFFSET ${listValues.length}`,
     listValues
   );
   return res.json({ cases: result.rows, page, pageSize, total: countResult.rows[0].total, totalPages: Math.ceil(countResult.rows[0].total / pageSize) });

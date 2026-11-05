@@ -29,6 +29,7 @@ export interface AdminUser {
   email: string;
   role: 'admin' | 'technician';
   technician_name?: string;
+  technician_phone?: string;
   phone?: string;
   dealer_name?: string;
   technician_type?: string;

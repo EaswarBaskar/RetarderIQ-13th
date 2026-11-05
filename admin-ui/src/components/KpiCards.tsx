@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Card } from './ui/Card';
 import { DiagnosticSummary, DiagnosticCase } from '../services/api';
-import { Activity, AlertTriangle, CheckCircle2, Clock, Users, ArrowRight, Timer } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Clock, Users, ArrowRight, Timer, ShieldCheck } from 'lucide-react';
+import { calculateFtrMetrics } from '../lib/diagnosticUtils';
 
 interface KpiCardsProps {
   summary: DiagnosticSummary | null;
@@ -78,10 +79,14 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary, cases, onFilterInco
     };
   }, [cases, summary]);
 
+  const ftrMetrics = useMemo(() => {
+    return calculateFtrMetrics(cases || []);
+  }, [cases]);
+
   return (
     <div className="space-y-4 mb-6">
-      {/* 5 Top KPI Cards including Total Hours */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* 6 Top KPI Cards including FTR and Total Hours */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* 1. Total Cases */}
         <Card className="p-4 border-slate-200/90 shadow-xs relative overflow-hidden border-t-4 border-t-[#0b5daa]">
           <div className="flex items-center justify-between">
@@ -99,6 +104,27 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary, cases, onFilterInco
             <span className="text-[11px] font-medium text-slate-500">submitted</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">All submitted diagnostic records</p>
+        </Card>
+
+        {/* 2. First Time Right (FTR) */}
+        <Card className="p-4 border-slate-200/90 shadow-xs relative overflow-hidden border-t-4 border-t-teal-600">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-teal-800 uppercase tracking-wider">
+              First Time Right (FTR)
+            </span>
+            <div className="rounded-lg bg-teal-50 p-2 text-teal-700">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight text-teal-700">
+              {ftrMetrics.ftrRate}%
+            </span>
+            <span className="text-[11px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded">
+              {ftrMetrics.repeatCasesCount === 0 ? 'Zero repeat' : `${ftrMetrics.repeatCasesCount} repeat`}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Vehicles returning ≤30 days flagged</p>
         </Card>
 
         {/* 2. Total Hours Card */}

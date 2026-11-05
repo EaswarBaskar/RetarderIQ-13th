@@ -104,6 +104,12 @@
 
       function confirmLeavingDiagnostic() {
         if (!hasUnfinishedDiagnostic()) return true;
+        if (typeof window.hasReachedFaultStep === 'function' && window.hasReachedFaultStep()) {
+          if (typeof window.showExitIntentPrompt === 'function') {
+            window.showExitIntentPrompt();
+            return false;
+          }
+        }
         const message = typeof t === 'function'
           ? t('unsaved_diagnostic_warning')
           : 'This diagnostic is not finished. If you leave now, unsaved data may be lost. Continue?';
@@ -112,7 +118,8 @@
 
       function isBlockingModalOpen() {
         const modal = document.getElementById('diagnosticFeedbackModal');
-        return Boolean(modal && modal.style.display !== 'none');
+        const exitModal = document.getElementById('riqExitIntentModal');
+        return Boolean((modal && modal.style.display !== 'none') || (exitModal && exitModal.style.display !== 'none'));
       }
 
       // Browsers intentionally replace custom beforeunload text with their
@@ -120,6 +127,9 @@
       // close while an unfinished diagnostic is active.
       window.addEventListener('beforeunload', event => {
         if (!hasUnfinishedDiagnostic()) return;
+        if (typeof window.syncFaultExitBeacon === 'function' && window.hasReachedFaultStep?.()) {
+          window.syncFaultExitBeacon();
+        }
         event.preventDefault();
         event.returnValue = '';
       });
@@ -143,6 +153,17 @@
         // Browser/mobile Back should undo the active diagnostic checkpoint
         // before leaving the diagnostic screen.
         if (hasUnfinishedDiagnostic()) {
+          if (typeof window.hasReachedFaultStep === 'function' && window.hasReachedFaultStep()) {
+            if (typeof window.showExitIntentPrompt === 'function') {
+              window.showExitIntentPrompt();
+              const activeScreen = getVisibleDiagnosticScreen();
+              if (activeScreen && window.history?.pushState) {
+                window.history.pushState({ diagnosticScreen: activeScreen }, '', '#' + activeScreen);
+                lastNavigationScreen = activeScreen;
+              }
+              return;
+            }
+          }
           if (currentScreen === 'guidedFlowCard'
             && typeof window.canGoBackDiagnostic === 'function'
             && window.canGoBackDiagnostic()
@@ -204,6 +225,14 @@
       function handleGlobalBack() {
         if (isBlockingModalOpen()) return;
         const screen = getVisibleDiagnosticScreen();
+        if ((screen === 'guidedFlowCard' || screen === 'tmlCard')
+          && typeof window.hasReachedFaultStep === 'function'
+          && window.hasReachedFaultStep()) {
+          if (typeof window.showExitIntentPrompt === 'function') {
+            window.showExitIntentPrompt();
+            return;
+          }
+        }
         if (screen === 'guidedFlowCard' && typeof window.handleDiagnosticBack === 'function' && window.canGoBackDiagnostic?.()) {
           window.handleDiagnosticBack();
           updateGlobalBackButton();

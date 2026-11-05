@@ -157,7 +157,30 @@ const apiBase = window.RIQ_API_BASE_URL || '';
     function renderDetail(item) {
       const p = item.payload || {};
       if (!p.Region) p.Region = getRegion(p);
-      const value = key => escapeHtml(p[key] || '-');
+      const value = key => {
+        if (key === 'Kms & Date of Sale' || key === 'Odometer' || key === 'Odometer Km') {
+          const raw = p['Odometer Km'] ?? p['Kms & Date of Sale'] ?? p.Odometer;
+          if (raw === undefined || raw === null || raw === '' || raw === '-') return '-';
+          if (typeof raw === 'number') return `${raw.toLocaleString()} km`;
+          return String(raw).includes('km') ? escapeHtml(String(raw)) : `${escapeHtml(String(raw))} km`;
+        }
+        if (key === 'Complaint Attended on' || key === 'Date') {
+          return escapeHtml(p['Complaint Attended on'] || (item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'));
+        }
+        if (key === 'City' || key === 'Location') {
+          const loc = [p.City, p.State].filter(Boolean).filter(v => v !== '-').join(', ');
+          return escapeHtml(loc || p.City || p.State || '-');
+        }
+        if (key === 'Diagnostic Duration' || key === 'Duration') {
+          if (p['Diagnostic Duration'] && p['Diagnostic Duration'] !== '-') return escapeHtml(p['Diagnostic Duration']);
+          if (item.created_at && p['Session Last Seen']) {
+            const mins = Math.max(1, Math.round((new Date(p['Session Last Seen']) - new Date(item.created_at)) / 60000));
+            return mins < 720 ? `${mins} mins` : '-';
+          }
+          return '-';
+        }
+        return escapeHtml(p[key] || '-');
+      };
       const plainValue = key => escapeHtml(String(p[key] || '-').replace(/<br\s*\/?\s*>/gi, ' ').replace(/<[^>]*>/g, ''));
       const status = sessionStatus(p);
       const statusClass = status === 'FAULT FOUND' ? 'badge-fault' : status === 'WORKING SATISFACTORY' ? 'badge-ok' : 'badge-incomplete';
@@ -177,7 +200,7 @@ const apiBase = window.RIQ_API_BASE_URL || '';
       detail += '<div class="detail-section"><h3>Technician Finding</h3><div class="detail-callout"><strong>Customer voice / field complaint</strong>' + value('Customer Voice / Field Complaints reported') + '</div></div>';
       detail = '<div class="report-header"><h3>RETARDER IQ – Diagnostic Report</h3><p>Generated on: ' + escapeHtml(new Date(item.created_at).toLocaleString()) + '</p><span class="report-case">' + escapeHtml(item.case_number || p['Diagnostic Case ID'] || 'Diagnostic Case') + '</span></div>';
       detail += '<div class="report-info-card"><div class="report-columns"><div><h3>TECHNICIAN DETAILS</h3>' + field('Name','FSE Name') + field('Phone','Technician Phone') + field('Workshop','Dealer / Location') + field('Location','City') + field('Region','Region') + '</div><div><h3>VEHICLE DETAILS</h3>' + field('Travels / Fleet','Travels Name') + field('Reg No','Vehicle Registration No.') + field('Vehicle Manufacturer','Vehicle Manufacturer') + field('Model','Model') + field('Odometer','Kms & Date of Sale') + field('Chassis','Chassis No.') + '</div></div>';
-      const faultDetailsHtml = window.RIQReportRenderer.renderFaultDetails(p, { caseNumber: item.case_number, technicianName: p['FSE Name'], phoneNumber: p['Technician Phone'], technicianType: p['Technician Type'], region: p.Region || getRegion(p), location: [p.City, p.State].filter(Boolean).join(', '), registrationNo: p['Vehicle Registration No.'], chassisNo: p['Chassis No.'], model: p.Model, dealer: p['Dealer / Location'] });
+      const faultDetailsHtml = window.RIQReportRenderer.renderFaultDetails(p, { caseNumber: item.case_number, technicianName: p['FSE Name'], phoneNumber: p['Technician Phone'], technicianType: p['Technician Type'], region: p.Region || getRegion(p), location: [p.City, p.State].filter(Boolean).join(', '), registrationNo: p['Vehicle Registration No.'], travelsName: p['Travels Name'], chassisNo: p['Chassis No.'], model: p.Model, dealer: p['Dealer / Location'] });
       const currentStepValue = escapeHtml(p['Diagnostic Current Step Label'] || p['Diagnostic Current Step'] || '-');
       detail += '<div class="report-summary"><div><h3>DIAGNOSTIC SUMMARY</h3><p><strong>Outcome:</strong> <span class="outcome-pill ' + statusClass + '">' + escapeHtml(status) + '</span></p>' + field('Session State','Session State') + field('Last Event','Session Event') + field('Last Seen','Session Last Seen') + '<div class="detail-item"><small>Current Step</small><strong>' + currentStepValue + '</strong></div>' + field('Duration','Diagnostic Duration') + field('Date','Complaint Attended on') + field('Language Used','Diagnostic Language Name') + field('Admin Report Language','Admin Report Language') + '</div><div><h3>FAULT DETAILS</h3>' + faultDetailsHtml + '</div></div></div>';
       detail += '<div class="detail-section"><h3>Additional Diagnostic Details</h3><div class="detail-grid">' + field('Complaint Type','Complaint Type') + field('Suspected Product','Suspected Product') + field('Emission Standard','Emission Standard') + field('Warranty','Vehicle under warranty period?') + field('Repeat Complaint','Repeat complaint? Yes / No') + field('Region','Region') + '</div></div>';
@@ -515,7 +538,7 @@ const apiBase = window.RIQ_API_BASE_URL || '';
         const p = item.payload || {};
         const status = sessionStatus(p);
         const statusClass = status === 'FAULT FOUND' ? 'badge-fault' : status === 'WORKING SATISFACTORY' ? 'badge-ok' : 'badge-incomplete';
-        return `<tr><td><input class="case-select" type="checkbox" value="${escapeHtml(item.id)}" aria-label="Select ${escapeHtml(item.case_number || 'case')}"></td><td>${escapeHtml(item.case_number || p['Diagnostic Case ID'])}</td><td>${escapeHtml(new Date(item.created_at).toLocaleString())}</td><td><span class="badge ${statusClass}">${escapeHtml(status)}</span></td><td>${escapeHtml(p['FSE Name'] || '-')}</td><td><strong>${escapeHtml(p['Vehicle Registration No.'] || '-')}</strong>${p['Travels Name'] ? `<br><small style="color:#0b5daa;font-weight:600;">${escapeHtml(p['Travels Name'])}` : ''}</td><td>${escapeHtml(p['Diagnostic Language Name'] || p['Diagnostic Language'] || 'English')}</td><td>${escapeHtml(p['Dealer / Location'] || '-')}</td><td>${escapeHtml(p['Recommended Part No.'] || p['Suspected Product'] || '-')}<br><small>${escapeHtml(p['Replacement Status'] || 'NOT_REQUIRED')}</small></td><td><button data-case-id="${escapeHtml(item.id)}" class="viewBtn">View</button></td></tr>`;
+        return `<tr><td><input class="case-select" type="checkbox" value="${escapeHtml(item.id)}" aria-label="Select ${escapeHtml(item.case_number || 'case')}"></td><td>${escapeHtml(item.case_number || p['Diagnostic Case ID'])}</td><td>${escapeHtml(new Date(item.created_at).toLocaleString())}</td><td><span class="badge ${statusClass}">${escapeHtml(status)}</span></td><td>${escapeHtml(p['FSE Name'] || '-')}</td><td><strong>${escapeHtml(p['Vehicle Registration No.'] || '-')}</strong>${p['Travels Name'] ? `<br><small style="color:#0b5daa;font-weight:600;">${escapeHtml(p['Travels Name'])}</small>` : ''}</td><td>${escapeHtml(p['Diagnostic Language Name'] || p['Diagnostic Language'] || 'English')}</td><td>${escapeHtml(p['Dealer / Location'] || '-')}</td><td>${escapeHtml(p['Recommended Part No.'] || p['Suspected Product'] || '-')}<br><small>${escapeHtml(p['Replacement Status'] || 'NOT_REQUIRED')}</small></td><td><button data-case-id="${escapeHtml(item.id)}" class="viewBtn">View</button></td></tr>`;
       }).join('');
       $('reportsBody').innerHTML = reportMarkup || '<tr><td colspan="10">No reports found.</td></tr>';
       document.querySelectorAll('.viewBtn').forEach(button => button.addEventListener('click', async () => {

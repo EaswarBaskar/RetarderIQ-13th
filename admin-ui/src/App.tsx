@@ -160,6 +160,7 @@ export const App: React.FC = () => {
       'Technician Phone',
       'Vehicle Manufacturer',
       'Model',
+      'Travels Name',
       'Vehicle Registration No.',
       'Chassis No.',
       'Odometer Km',

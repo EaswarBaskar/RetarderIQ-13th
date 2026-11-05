@@ -867,7 +867,7 @@
     const db = await openTmlDraftDb();
     if (!db) return;
     const formData = {};
-    ['techName', 'techPhone', 'dealerName', 'city', 'state', 'vehReg', 'odometer', 'chassisNo', 'vehModel'].forEach(id => {
+    ['techName', 'techPhone', 'dealerName', 'city', 'state', 'travelsName', 'vehReg', 'odometer', 'chassisNo', 'vehModel'].forEach(id => {
       const input = document.getElementById(id);
       if (input) formData[id] = input.value;
     });
@@ -1489,6 +1489,9 @@
     } else if (isFinal) {
       const genLabel = typeof t === 'function' ? t('tml_generating') : 'Generating report...';
       if (badgeClass === 'step-fail') {
+        window._hasReachedFaultStep = true;
+        window._tmlHasFault = true;
+        window._lastIdentifiedFault = { reason: text || 'Fault detected in vehicle', outcome: 'FAULT FOUND' };
         const hasNextFailure = blinkCodeQueue.length > 0 || diagnosticQueue.length > 0;
         const nextLabel = hasNextFailure ? t('tml_continue_failed') : t('tml_generate_report');
           box.innerHTML = `<div>${text}</div><label class="step-evidence-label">${typeof t === 'function' ? t('tml_photo_evidence') : 'Add photo evidence (optional)'}<input id="tmlEvidenceInput" class="step-evidence-input" type="file" accept="image/*" capture="environment"><span id="tmlEvidenceStatus"></span><img id="tmlEvidencePreview" class="step-evidence-preview" alt="Attached evidence preview" style="display:none; width:120px; height:90px; object-fit:cover; margin-top:8px; border-radius:8px; border:1px solid #cbd5e1;"></label><button class="btn" id="tmlFinishReport" style="margin-top:15px; width:100%;">${nextLabel}</button>`;
@@ -1730,6 +1733,7 @@
     generateTmlReport();
   }
 
+  window.generateTmlReport = generateTmlReport;
   function generateTmlReport() {
     const resultSummary = document.getElementById("resultSummary");
     if (!resultSummary) return;
@@ -1975,6 +1979,9 @@
   };
 
   window.resetTmlState = function () {
+    window._hasReachedFaultStep = false;
+    window._tmlHasFault = false;
+    window._lastIdentifiedFault = null;
     stopTimer();
     currentStepId = 'cluster_check';
     history = [];
@@ -2068,7 +2075,8 @@
       'Type of brake': 'Air',
       'Type of arrangement': '-',
       'Product': 'EMR',
-      'Region': 'Other',
+      'Region': (typeof window.getRegionForState === 'function' ? window.getRegionForState(rawValue('state')) : 'Other'),
+      'Travels Name': rawValue('travelsName'),
       'Dealer / Location': rawValue('dealerName'),
       'Complaint Attended on': new Date().toLocaleDateString(),
       'FSE Name': rawValue('techName'),
@@ -2077,11 +2085,15 @@
       'State': rawValue('state'),
       'Diagnostic Duration': report.elapsedTimeText,
       'Diagnostic Status': report.isSuccess ? 'WORKING SATISFACTORY' : 'FAULT FOUND',
+      'Lifecycle Status': report.isSuccess ? 'CLOSED' : 'REFERRED_FOR_REPLACEMENT',
+      'Replacement Status': report.isSuccess ? 'NOT_REQUIRED' : 'PENDING',
+      'Verification Status': report.isSuccess ? 'PASSED' : 'NOT_STARTED',
       'Session State': 'COMPLETED',
       'Session Event': 'DIAGNOSTIC_COMPLETED',
       'Session Last Seen': new Date().toISOString(),
       'Chassis No.': rawValue('chassisNo'),
-      'Kms & Date of Sale': rawValue('odometer'),
+      'Odometer Km': Number(String(rawValue('odometer')).replace(/[^0-9.]/g, '')) || 0,
+      'Kms & Date of Sale': rawValue('odometer') ? `${rawValue('odometer')} km` : '-',
       'Customer Voice / Field Complaints reported': faultText || englishOutcomeText,
       'Diagnostic Fault Details': englishFaultItems.map(item => ({
         title: item.title || '',
@@ -2243,6 +2255,7 @@
       dealerName: p['Dealer / Location'],
       city: p.City,
       state: p.State,
+      travelsName: p['Travels Name'],
       vehReg: p['Vehicle Registration No.'],
       odometer: p['Odometer Km'],
       chassisNo: p['Chassis No.'],

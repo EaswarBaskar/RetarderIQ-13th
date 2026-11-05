@@ -529,7 +529,7 @@ export const TechnicianManagement: React.FC<TechnicianManagementProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Phone</span>
-                  <div className="font-semibold">{selectedUserDetail.user.phone || '—'}</div>
+                  <div className="font-semibold">{selectedUserDetail.user.technician_phone || selectedUserDetail.user.phone || '—'}</div>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Registered</span>

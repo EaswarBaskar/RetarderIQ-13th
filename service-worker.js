@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retarder-iq-shell-v117';
+const CACHE_NAME = 'retarder-iq-shell-v121';
 const SHELL = [
   '/',
   '/index.html',
@@ -29,6 +29,8 @@ const SHELL = [
   '/tml.js',
   '/css/style.css',
   '/manifest.json',
+  '/asset/icon-192.png',
+  '/asset/icon-512.png',
   '/asset/optimized/ashokleyland.png',
   '/asset/optimized/retarder-icon.png',
   '/asset/music/machine-start.mp3',

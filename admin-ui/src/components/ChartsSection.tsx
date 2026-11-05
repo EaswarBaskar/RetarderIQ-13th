@@ -1,7 +1,15 @@
 import React, { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/Card';
 import { DiagnosticCase } from '../services/api';
-import { getRegion, getSessionStatus, getManufacturer } from '../lib/diagnosticUtils';
+import {
+  getRegion,
+  getSessionStatus,
+  getManufacturer,
+  calculateFtrMetrics,
+  getTopTechnicians,
+  TopTechnicianItem,
+} from '../lib/diagnosticUtils';
+import { ShieldCheck, Wrench, CheckCircle2 } from 'lucide-react';
 import {
   PieChart,
   Pie,
@@ -112,7 +120,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ cases }) => {
       const feedback = p['Diagnostic Feedback'];
       let score: any = null;
       if (typeof feedback === 'object' && feedback !== null) {
-        score = feedback.rating ?? feedback.score;
+        score = feedback.clarity ?? feedback.rating ?? feedback.score;
       } else if (feedback !== undefined && feedback !== null && String(feedback).trim() !== '') {
         score = feedback;
       }
@@ -223,6 +231,12 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ cases }) => {
       { name: 'Post warranty (≥200k km)', value: counts['Post warranty'], color: '#f59e0b' },
     ].filter((d) => d.value > 0);
   }, [cases]);
+
+  // First Time Right (FTR) & 30-Day Repeat Complaints
+  const ftrMetrics = useMemo(() => calculateFtrMetrics(cases), [cases]);
+
+  // Top 5 Technicians by Complaints Attended
+  const topTechnicians = useMemo(() => getTopTechnicians(cases, 5), [cases]);
 
   return (
     <div className="space-y-4 mb-6">
@@ -340,6 +354,263 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ cases }) => {
                     <Bar dataKey="value" fill="#0b5daa" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Operations & Technician Quality Row: FTR & Top 5 Technicians */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* First Time Right (FTR) & Repeat Complaints (≤30 Days) */}
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between pb-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle>First Time Right (FTR) & Repeat Complaints</CardTitle>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                  <ShieldCheck className="h-3 w-3" />
+                  30-Day Window
+                </span>
+              </div>
+              <CardDescription>
+                Vehicles returning for diagnosis within 30 days are tracked as Repeat Complaints
+              </CardDescription>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-2xl font-black text-teal-600 tracking-tight">{ftrMetrics.ftrRate}%</span>
+              <span className="block text-[10px] uppercase font-bold text-slate-400">FTR Rate</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {ftrMetrics.totalCases === 0 ? (
+              <div className="flex h-56 items-center justify-center text-xs text-slate-400">
+                No diagnostic cases available
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 h-56">
+                  {/* Donut */}
+                  <div className="w-full sm:w-1/2 h-full flex items-center justify-center relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={ftrMetrics.chartData}
+                          innerRadius={50}
+                          outerRadius={75}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {ftrMetrics.chartData.map((entry, index) => (
+                            <Cell key={`ftr-cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(val: any, name: any) => [`${val} visits`, name]}
+                          contentStyle={{
+                            backgroundColor: '#1e293b',
+                            borderColor: '#334155',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '12px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-xl font-black text-slate-800">{ftrMetrics.ftrRate}%</span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400">FTR</span>
+                    </div>
+                  </div>
+
+                  {/* Summary Counts */}
+                  <div className="w-full sm:w-1/2 flex flex-col gap-2.5">
+                    <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="font-semibold text-emerald-950">First-Time Right</span>
+                      </div>
+                      <span className="font-extrabold text-emerald-700">
+                        {ftrMetrics.firstTimeCount}{' '}
+                        <span className="font-normal text-emerald-600 text-[11px]">({ftrMetrics.ftrRate}%)</span>
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-rose-50/70 border border-rose-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shrink-0" />
+                        <span className="font-semibold text-rose-950">Repeat (≤30 Days)</span>
+                      </div>
+                      <span className="font-extrabold text-rose-700">
+                        {ftrMetrics.repeatCasesCount}{' '}
+                        <span className="font-normal text-rose-600 text-[11px]">({ftrMetrics.repeatRate}%)</span>
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <span>Unique Vehicles Tracked</span>
+                      <span className="font-bold text-slate-900">{ftrMetrics.uniqueVehiclesCount}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Repeat Cases Breakdown by Dealer / Technician */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    <span>Repeat Visits by Dealer & Technician</span>
+                    <span>{ftrMetrics.repeatCasesList.length} Flagged</span>
+                  </div>
+                  {ftrMetrics.repeatCasesList.length === 0 ? (
+                    <div className="p-2.5 bg-emerald-50/40 rounded-lg border border-emerald-100 text-xs text-emerald-700 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>Zero repeat complaints within 30 days across all field workshops!</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {ftrMetrics.repeatCasesList.map((item, idx) => (
+                        <div
+                          key={`rep-${idx}`}
+                          className="flex items-center justify-between p-2 rounded-md bg-slate-50 hover:bg-slate-100/80 transition-colors text-xs border border-slate-100"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-700 shrink-0">
+                              REPEAT
+                            </span>
+                            <span className="font-bold text-slate-800">{item.vehicleReg}</span>
+                            <span className="text-slate-400">·</span>
+                            <span className="text-slate-600 truncate">{item.technician}</span>
+                            <span className="text-slate-400 hidden sm:inline">({item.dealer})</span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-rose-600 shrink-0 ml-2">
+                            {item.daysBetween === 0 ? 'Repeat marked' : `Returned in ${item.daysBetween}d`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top 5 Technicians by Complaints Attended */}
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between pb-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle>Top 5 Technicians by Complaints</CardTitle>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  <Wrench className="h-3 w-3" />
+                  Top Attended
+                </span>
+              </div>
+              <CardDescription>
+                Technicians with highest diagnostic volume and First Time Right (FTR) effectiveness
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {topTechnicians.length === 0 ? (
+              <div className="flex h-56 items-center justify-center text-xs text-slate-400">
+                No technician diagnostic data available
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Horizontal Bar Chart */}
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={topTechnicians}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={100}
+                        tick={{ fontSize: 11, fill: '#334155', fontWeight: 600 }}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload as TopTechnicianItem;
+                            return (
+                              <div className="rounded-lg bg-slate-900 p-2.5 text-white shadow-xl text-xs border border-slate-700 space-y-1">
+                                <div className="font-bold text-sm text-blue-300">{data.fullName}</div>
+                                {data.dealer && <div className="text-[11px] text-slate-300">{data.dealer}</div>}
+                                <div className="pt-1 border-t border-slate-700/80 flex items-center justify-between gap-4">
+                                  <span className="text-slate-400">Total Cases:</span>
+                                  <span className="font-bold">{data.totalComplaints}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-emerald-400">First-Time Right:</span>
+                                  <span className="font-bold text-emerald-400">
+                                    {data.totalComplaints - data.repeatCount}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-rose-400">Repeat Visits (≤30d):</span>
+                                  <span className="font-bold text-rose-400">{data.repeatCount}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4 font-bold">
+                                  <span className="text-teal-300">FTR Rate:</span>
+                                  <span className="text-teal-300">{data.ftrRate}%</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="totalComplaints" fill="#0b5daa" radius={[0, 4, 4, 0]} name="Complaints" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Top 5 Leaderboard Cards */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Top 5 FSE Performance Ranking
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                    {topTechnicians.map((tech) => (
+                      <div
+                        key={tech.rank}
+                        className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-col justify-between text-xs hover:border-blue-200 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="h-5 w-5 rounded-full bg-blue-100 text-[#0b5daa] font-black text-[10px] flex items-center justify-center shrink-0">
+                            #{tech.rank}
+                          </span>
+                          <span
+                            className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
+                              tech.ftrRate >= 90
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : tech.ftrRate >= 75
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-rose-100 text-rose-700'
+                            }`}
+                          >
+                            {tech.ftrRate}% FTR
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 truncate" title={tech.fullName}>
+                          {tech.fullName}
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate" title={tech.dealer}>
+                          {tech.dealer || tech.city || 'Field FSE'}
+                        </div>
+                        <div className="mt-1.5 pt-1 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">Cases</span>
+                          <span className="font-extrabold text-slate-800">{tech.totalComplaints}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>

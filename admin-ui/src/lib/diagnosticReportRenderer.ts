@@ -477,9 +477,10 @@ export function generateDiagnosticReportHtml(item: DiagnosticCase): string {
         <div>
           <h3>VEHICLE DETAILS</h3>
           ${field('Registration No.', p['Vehicle Registration No.'])}
+          ${field('Travels / Fleet Name', p['Travels Name'])}
           ${field('Vehicle Manufacturer', oem)}
           ${field('Model', p.Model)}
-          ${field('Odometer / Sale Date', p['Odometer Km'] || p['Kms & Date of Sale'])}
+          ${field('Odometer / Sale Date', p['Odometer Km'] ? `${Number(p['Odometer Km']).toLocaleString()} km` : p['Kms & Date of Sale'])}
           ${field('Chassis No.', p['Chassis No.'])}
           ${field('Emission Standard', p['Emission Standard'])}
         </div>

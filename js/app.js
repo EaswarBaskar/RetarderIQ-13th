@@ -33,6 +33,14 @@ function hide(el) {
   let feedbackCallback = null;
   let feedbackValues = { clarity: '', unclearSteps: '', comments: '' };
 
+  const ratingsConfig = [
+    { rating: 1, emoji: '😡', labelKey: 'feedback_very_unclear', fallback: 'Very unclear', badgeKey: 'feedback_lowest_badge', badgeFallback: 'Lowest', color: '#dc2626', bg: '#fef2f2', border: '#ef4444' },
+    { rating: 2, emoji: '🙁', labelKey: 'feedback_unclear', fallback: 'Unclear', badgeKey: '', badgeFallback: '', color: '#ea580c', bg: '#fff7ed', border: '#f97316' },
+    { rating: 3, emoji: '😐', labelKey: 'feedback_average', fallback: 'Needs some improvement', badgeKey: '', badgeFallback: '', color: '#d97706', bg: '#fffbeb', border: '#f59e0b' },
+    { rating: 4, emoji: '🙂', labelKey: 'feedback_clear', fallback: 'Clear', badgeKey: '', badgeFallback: '', color: '#16a34a', bg: '#f0fdf4', border: '#22c55e' },
+    { rating: 5, emoji: '🤩', labelKey: 'feedback_very_clear', fallback: 'Very clear', badgeKey: 'feedback_highest_badge', badgeFallback: 'Best', color: '#059669', bg: '#ecfdf5', border: '#10b981' }
+  ];
+
   function feedbackText(key, fallback) {
     return typeof t === 'function' && t(key) !== key ? t(key) : fallback;
   }
@@ -40,33 +48,185 @@ function hide(el) {
   function renderFeedbackModal() {
     const modal = document.getElementById('diagnosticFeedbackModal');
     if (!modal) return;
+    const currentClarity = feedbackValues.clarity ? Number(feedbackValues.clarity) : null;
+
     modal.innerHTML = `
-      <div role="dialog" aria-modal="true" aria-labelledby="diagnosticFeedbackTitle" style="width:min(620px,100%); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; padding:24px; box-shadow:0 24px 70px rgba(15,23,42,.35);">
-        <h2 id="diagnosticFeedbackTitle" style="margin:0 0 8px; color:#0b5daa;">${feedbackText('feedback_title', 'Diagnostic Feedback')}</h2>
-        <p style="margin:0 0 18px; color:#475569;">${feedbackText('feedback_intro', 'Before generating the report, please rate how clear the diagnostic steps were.')}</p>
-        <label style="display:block; margin:12px 0 8px; font-weight:700;">${feedbackText('feedback_clarity', 'How clear were the diagnostic steps?')}</label>
-        <input id="diagnosticFeedbackClarity" type="hidden" value="${feedbackValues.clarity || ''}" required>
-        <div id="diagnosticFeedbackStars" role="radiogroup" aria-label="Diagnostic clarity rating" style="display:flex; gap:8px; margin:4px 0 8px;">
-          ${[1, 2, 3, 4, 5].map(rating => `<button type="button" data-feedback-rating="${rating}" aria-label="${rating} out of 5 stars" style="border:0; background:transparent; color:#f59e0b; font-size:42px; line-height:1; padding:2px; cursor:pointer;">★</button>`).join('')}
+      <style>
+        #diagnosticFeedbackCards .riq-rating-btn:hover {
+          transform: translateY(-2px);
+        }
+        @media (max-width: 480px) {
+          #diagnosticFeedbackCards {
+            gap: 4px !important;
+          }
+          #diagnosticFeedbackCards .riq-rating-btn {
+            padding: 8px 2px !important;
+          }
+          #diagnosticFeedbackCards .riq-rating-emoji {
+            font-size: 22px !important;
+          }
+          #diagnosticFeedbackCards .riq-rating-stars {
+            font-size: 12px !important;
+          }
+          #diagnosticFeedbackCards .riq-rating-label {
+            font-size: 9.5px !important;
+          }
+          #diagnosticFeedbackCards .riq-rating-badge {
+            font-size: 8px !important;
+            padding: 1px 3px !important;
+          }
+        }
+      </style>
+      <div role="dialog" aria-modal="true" aria-labelledby="diagnosticFeedbackTitle" style="width:min(560px,100%); max-height:92vh; overflow-y:auto; background:#ffffff; border-radius:20px; padding:22px; box-shadow:0 25px 60px -10px rgba(15,23,42,.38); box-sizing:border-box; font-family:inherit;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:#eff6ff; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;">⭐</div>
+          <div>
+            <h2 id="diagnosticFeedbackTitle" style="margin:0; font-size:19px; font-weight:700; color:#0f172a; line-height:1.2;">${feedbackText('feedback_title', 'Diagnostic Feedback')}</h2>
+            <p style="margin:2px 0 0; font-size:12.5px; color:#64748b; line-height:1.4;">${feedbackText('feedback_intro', 'Before generating the report, please rate how clear the diagnostic steps were.')}</p>
+          </div>
         </div>
-        <small style="color:#64748b;">${feedbackText('feedback_required', 'Select a star to generate the report.')}</small>
+
+        <!-- Scale Reminder Bar to prevent 1-star vs 5-star confusion -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; margin:0 0 14px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+          <span style="color:#b91c1c; display:inline-flex; align-items:center; gap:4px;">
+            <span>🔴 1★</span> <span>${feedbackText('feedback_lowest_badge', 'Lowest / Poor')}</span>
+          </span>
+          <span style="color:#94a3b8; font-size:11px;">➔</span>
+          <span style="color:#047857; display:inline-flex; align-items:center; gap:4px;">
+            <span>🟢 5★</span> <span>${feedbackText('feedback_highest_badge', 'Highest / Best')}</span>
+          </span>
+        </div>
+
+        <label style="display:block; margin:0 0 8px; font-size:13.5px; font-weight:700; color:#1e293b;">
+          ${feedbackText('feedback_clarity', 'How clear were the diagnostic steps?')}
+        </label>
+        <input id="diagnosticFeedbackClarity" type="hidden" value="${feedbackValues.clarity || ''}">
+
+        <div id="diagnosticFeedbackCards" role="radiogroup" aria-label="Diagnostic clarity rating" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin:0 0 14px;">
+          ${ratingsConfig.map(r => {
+            const isSelected = currentClarity === r.rating;
+            return `
+              <button type="button" class="riq-rating-btn" data-feedback-rating="${r.rating}" aria-label="${r.rating} out of 5 stars" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 4px; border-radius:12px; border:2px solid ${isSelected ? r.border : '#e2e8f0'}; background:${isSelected ? r.bg : '#ffffff'}; cursor:pointer; min-width:0; transition:all .15s ease; user-select:none; outline:none; box-shadow:${isSelected ? '0 4px 12px ' + r.border + '33' : 'none'};">
+                <span class="riq-rating-emoji" style="font-size:26px; line-height:1; display:block; margin-bottom:4px;">${r.emoji}</span>
+                <span class="riq-rating-stars" style="font-size:13px; font-weight:800; color:${isSelected ? r.color : '#334155'}; line-height:1; margin-bottom:4px;">${r.rating}★</span>
+                <span class="riq-rating-label" style="font-size:10.5px; font-weight:${isSelected ? '700' : '500'}; color:${isSelected ? r.color : '#64748b'}; text-align:center; line-height:1.2; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
+                  ${feedbackText(r.labelKey, r.fallback)}
+                </span>
+                ${r.badgeKey ? `<span class="riq-rating-badge" style="margin-top:4px; font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; padding:2px 4px; border-radius:4px; background:${r.rating === 1 ? '#fee2e2' : '#d1fae5'}; color:${r.rating === 1 ? '#b91c1c' : '#047857'};">${feedbackText(r.badgeKey, r.badgeFallback)}</span>` : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Dynamic Live Feedback Callout -->
+        <div id="diagnosticFeedbackCallout" style="min-height:46px; border-radius:10px; padding:10px 12px; margin-bottom:16px; font-size:12.5px; display:flex; align-items:center; gap:8px; line-height:1.4; transition:all .2s ease;">
+        </div>
+
+        <!-- Confirm and Continue button -->
+        <button id="diagnosticFeedbackSubmitBtn" type="button" style="width:100%; height:48px; border-radius:12px; border:none; background:${currentClarity ? '#0b5daa' : '#94a3b8'}; color:#ffffff; font-size:14.5px; font-weight:700; cursor:${currentClarity ? 'pointer' : 'default'}; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:${currentClarity ? '0 4px 14px rgba(11,93,170,.3)' : 'none'}; transition:all .15s ease;">
+          <span>${feedbackText('feedback_continue', 'Continue to Report')}</span>
+          <span style="font-size:16px;">➔</span>
+        </button>
       </div>`;
+
     const clarity = document.getElementById('diagnosticFeedbackClarity');
-    if (clarity) clarity.value = feedbackValues.clarity;
-    document.querySelectorAll('[data-feedback-rating]').forEach(star => {
-      star.onclick = () => {
-        if (clarity) clarity.value = star.dataset.feedbackRating;
-        finishFeedback(false);
+    const submitBtn = document.getElementById('diagnosticFeedbackSubmitBtn');
+
+    function updateSelectedUI(rating) {
+      if (clarity) clarity.value = rating;
+      feedbackValues.clarity = String(rating);
+
+      if (submitBtn) {
+        submitBtn.style.background = '#0b5daa';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.style.boxShadow = '0 4px 14px rgba(11,93,170,.3)';
+      }
+
+      const callout = document.getElementById('diagnosticFeedbackCallout');
+      if (callout) {
+        if (rating === 1) {
+          callout.style.background = '#fef2f2';
+          callout.style.border = '1px solid #fecaca';
+          callout.style.color = '#991b1b';
+          callout.innerHTML = `⚠️ <div><strong>${feedbackText('feedback_very_unclear', 'Very unclear')} (1★)</strong>: ${feedbackText('feedback_selected_hint_low', '1 Star means Lowest / Poor. If the steps were clear and helpful, please select 5 Stars (Best)!')}</div>`;
+        } else if (rating === 2) {
+          callout.style.background = '#fff7ed';
+          callout.style.border = '1px solid #fed7aa';
+          callout.style.color = '#9a3412';
+          callout.innerHTML = `⚠️ <div><strong>${feedbackText('feedback_unclear', 'Unclear')} (2★)</strong></div>`;
+        } else if (rating === 3) {
+          callout.style.background = '#fffbeb';
+          callout.style.border = '1px solid #fde68a';
+          callout.style.color = '#92400e';
+          callout.innerHTML = `ℹ️ <div><strong>${feedbackText('feedback_average', 'Needs some improvement')} (3★)</strong></div>`;
+        } else if (rating === 4) {
+          callout.style.background = '#f0fdf4';
+          callout.style.border = '1px solid #bbf7d0';
+          callout.style.color = '#166534';
+          callout.innerHTML = `✅ <div><strong>${feedbackText('feedback_clear', 'Clear')} (4★)</strong></div>`;
+        } else if (rating === 5) {
+          callout.style.background = '#ecfdf5';
+          callout.style.border = '1px solid #a7f3d0';
+          callout.style.color = '#065f46';
+          callout.innerHTML = `🌟 <div><strong>${feedbackText('feedback_very_clear', 'Very clear')} (5★)</strong>: ${feedbackText('feedback_selected_hint_high', '5 Stars = Highest / Best (Top score)')}</div>`;
+        }
+      }
+
+      document.querySelectorAll('#diagnosticFeedbackCards [data-feedback-rating]').forEach(btn => {
+        const btnRating = Number(btn.dataset.feedbackRating);
+        const config = ratingsConfig.find(item => item.rating === btnRating);
+        const active = btnRating === rating;
+        btn.style.border = active ? `2px solid ${config.border}` : '2px solid #e2e8f0';
+        btn.style.background = active ? config.bg : '#ffffff';
+        btn.style.boxShadow = active ? `0 4px 12px ${config.border}33` : 'none';
+        const label = btn.querySelector('.riq-rating-label');
+        if (label) {
+          label.style.fontWeight = active ? '700' : '500';
+          label.style.color = active ? config.color : '#64748b';
+        }
+        const star = btn.querySelector('.riq-rating-stars');
+        if (star) {
+          star.style.color = active ? config.color : '#334155';
+        }
+      });
+    }
+
+    if (currentClarity) {
+      updateSelectedUI(currentClarity);
+    } else {
+      const callout = document.getElementById('diagnosticFeedbackCallout');
+      if (callout) {
+        callout.style.background = '#f8fafc';
+        callout.style.border = '1px solid #e2e8f0';
+        callout.style.color = '#64748b';
+        callout.innerHTML = `👉 <div>${feedbackText('feedback_required', 'Please select a clarity rating before continuing.')}</div>`;
+      }
+    }
+
+    document.querySelectorAll('#diagnosticFeedbackCards [data-feedback-rating]').forEach(btn => {
+      btn.onclick = () => {
+        const rating = Number(btn.dataset.feedbackRating);
+        updateSelectedUI(rating);
       };
     });
+
+    if (submitBtn) {
+      submitBtn.onclick = () => {
+        finishFeedback(false);
+      };
+    }
   }
 
   function finishFeedback(skipped) {
     const clarity = document.getElementById('diagnosticFeedbackClarity');
     if (!skipped && !clarity?.value) {
-      clarity?.focus();
-      clarity?.setCustomValidity(feedbackText('feedback_required', 'Please select a clarity rating before continuing.'));
-      clarity?.reportValidity();
+      const callout = document.getElementById('diagnosticFeedbackCallout');
+      if (callout) {
+        callout.style.background = '#fef2f2';
+        callout.style.border = '1px solid #ef4444';
+        callout.style.color = '#b91c1c';
+        callout.innerHTML = `⚠️ <strong>${feedbackText('feedback_required', 'Please select a clarity rating before continuing.')}</strong>`;
+      }
       return;
     }
     feedbackValues = skipped ? { clarity: '', unclearSteps: '', comments: '' } : {
@@ -96,6 +256,180 @@ function hide(el) {
   window.refreshDiagnosticFeedback = function () {
     if (!document.getElementById('diagnosticFeedbackModal')) return;
     renderFeedbackModal();
+  };
+})();
+
+/* =================== Exit Intent Prompt (Did you find the issue?) =================== */
+(function () {
+  window.hasReachedFaultStep = function () {
+    if (window._hasReachedFaultStep) return true;
+    if (window._pendingTerminal && window._pendingTerminal.outcome === 'FAULT FOUND') return true;
+
+    const stepResult = document.getElementById('stepResult');
+    if (stepResult && stepResult.style.display !== 'none' && (stepResult.classList.contains('step-fail') || stepResult.classList.contains('step-action'))) {
+      return true;
+    }
+
+    if (window.SELECTED_EMISSION === 'TML') {
+      const tmlBox = document.getElementById('tmlActionBox');
+      if (tmlBox && tmlBox.style.display !== 'none' && (tmlBox.querySelector('.step-fail') || tmlBox.classList.contains('step-fail'))) {
+        return true;
+      }
+      if (window._tmlHasFault) return true;
+    }
+
+    return false;
+  };
+
+  window.getIdentifiedFaultReason = function () {
+    if (window._lastIdentifiedFault?.reason) return window._lastIdentifiedFault.reason;
+    if (window._pendingTerminal?.reason) return window._pendingTerminal.reason;
+    const reasonTextEl = document.querySelector('#stepResult .result-reason-text');
+    if (reasonTextEl && reasonTextEl.textContent.trim()) {
+      return reasonTextEl.textContent.trim();
+    }
+    const tmlActionText = document.querySelector('#tmlActionBox div');
+    if (tmlActionText && tmlActionText.textContent.trim()) {
+      return tmlActionText.textContent.trim();
+    }
+    return 'Fault identified during diagnostic checks';
+  };
+
+  window.showExitIntentPrompt = function () {
+    if (document.getElementById('riqExitIntentModal')) return;
+
+    const faultReason = window.getIdentifiedFaultReason();
+    const translatedReason = typeof t === 'function' ? t(faultReason) : faultReason;
+    const displayReason = translatedReason || faultReason;
+
+    const modal = document.createElement('div');
+    modal.id = 'riqExitIntentModal';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10001; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.65); backdrop-filter:blur(4px); font-family:inherit; box-sizing:border-box;';
+
+    const titleText = typeof t === 'function' && t('exit_intent_title') !== 'exit_intent_title'
+      ? t('exit_intent_title')
+      : 'Did RetarderIQ help you find the problem?';
+    const descText = typeof t === 'function' && t('exit_intent_desc') !== 'exit_intent_desc'
+      ? t('exit_intent_desc')
+      : 'A fault was identified during your checks. Save your diagnostic report now so this case is officially recorded and closed!';
+    const saveBtnText = typeof t === 'function' && t('exit_intent_save') !== 'exit_intent_save'
+      ? t('exit_intent_save')
+      : 'Yes, Save Fault & Close';
+    const continueBtnText = typeof t === 'function' && t('exit_intent_testing') !== 'exit_intent_testing'
+      ? t('exit_intent_testing')
+      : 'No, I need to continue testing';
+    const faultBadgeText = typeof t === 'function' && t('fault_found_status') !== 'fault_found_status'
+      ? t('fault_found_status')
+      : 'Identified Fault';
+
+    modal.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="exitIntentTitle" style="width:min(460px,100%); background:#ffffff; border-radius:20px; padding:24px; box-shadow:0 25px 60px -10px rgba(15,23,42,.45); text-align:center; box-sizing:border-box;">
+        <div style="width:54px; height:54px; border-radius:50%; background:#ecfdf5; border:2px solid #a7f3d0; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; font-size:26px;">
+          🔍
+        </div>
+        <h3 id="exitIntentTitle" style="margin:0 0 8px; font-size:18px; font-weight:800; color:#0f172a; line-height:1.3;">
+          ${titleText}
+        </h3>
+        <p style="margin:0 0 14px; font-size:12.5px; color:#64748b; line-height:1.4;">
+          ${descText}
+        </p>
+
+        <!-- Identified Fault summary box -->
+        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:10px 14px; margin-bottom:18px; text-align:left; font-size:12px; color:#991b1b; line-height:1.4; max-height:120px; overflow-y:auto;">
+          <div style="font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#dc2626; margin-bottom:3px;">
+            ⚠️ ${faultBadgeText}
+          </div>
+          <div style="color:#7f1d1d;">${displayReason}</div>
+        </div>
+
+        <!-- 2 Action Buttons -->
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button id="exitIntentSaveBtn" type="button" style="width:100%; height:48px; border-radius:12px; border:none; background:#10b981; color:#ffffff; font-size:14.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(16,185,129,.35); transition:background .15s ease;">
+            <span>✅</span>
+            <span>${saveBtnText}</span>
+          </button>
+          <button id="exitIntentContinueBtn" type="button" style="width:100%; height:44px; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; color:#475569; font-size:13.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all .15s ease;">
+            <span>❌</span>
+            <span>${continueBtnText}</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const saveBtn = document.getElementById('exitIntentSaveBtn');
+    const continueBtn = document.getElementById('exitIntentContinueBtn');
+
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = '0.7';
+        saveBtn.innerHTML = `<span>⏳</span><span>Saving report...</span>`;
+        window.saveFaultAndComplete();
+      };
+    }
+
+    if (continueBtn) {
+      continueBtn.onclick = () => {
+        window.closeExitIntentPrompt();
+      };
+    }
+  };
+
+  window.closeExitIntentPrompt = function () {
+    const modal = document.getElementById('riqExitIntentModal');
+    if (modal) modal.remove();
+  };
+
+  window.saveFaultAndComplete = function () {
+    const faultReason = window.getIdentifiedFaultReason() || 'Fault confirmed by technician in field';
+
+    // Auto-set feedback so report generation does not stall
+    window._diagnosticFeedback = window._diagnosticFeedback || {
+      clarity: '5',
+      unclearSteps: '',
+      comments: 'Closed via Fault Confirmation (RetarderIQ Exit Intent)',
+      skipped: false,
+      language: typeof getLang === 'function' ? getLang() : 'en',
+      languageName: typeof getLanguageName === 'function' ? getLanguageName() : 'English',
+      recordedAt: new Date().toISOString()
+    };
+
+    window.closeExitIntentPrompt();
+
+    if (window.SELECTED_EMISSION === 'TML' && typeof window.generateTmlReport === 'function') {
+      window.generateTmlReport();
+    } else if (typeof generateGuidedReport === 'function') {
+      generateGuidedReport("FAULT FOUND", faultReason, true);
+      if (typeof clearDiagnosticDraft === 'function') {
+        clearDiagnosticDraft().catch(() => {});
+      }
+    }
+  };
+
+  window.syncFaultExitBeacon = function () {
+    const caseId = window._activeDiagnosticCaseId;
+    const token = sessionStorage.getItem('riq_access_token');
+    if (!caseId || !token) return;
+    const reason = window.getIdentifiedFaultReason() || 'Fault identified in field (Tab closed)';
+    const patchData = {
+      'Diagnostic Status': 'FAULT FOUND',
+      'Lifecycle Status': 'REFERRED_FOR_REPLACEMENT',
+      'Session State': 'COMPLETED',
+      'Session Event': 'FIELD_EXIT_CONFIRMED',
+      'Session Last Seen': new Date().toISOString(),
+      'Suspected Product': reason
+    };
+    const url = `${window.RIQ_API_BASE_URL || ''}/api/diagnostics/${caseId}`;
+    try {
+      fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(patchData),
+        keepalive: true
+      });
+    } catch (_) {}
   };
 })();
 
@@ -263,6 +597,8 @@ function hide(el) {
     okBtn.onclick = window._proceedAfterAction;
 
     if (badge !== 'step-pass') {
+      window._hasReachedFaultStep = true;
+      window._lastIdentifiedFault = { reason, badge, outcome: 'FAULT FOUND' };
       const evidenceLabel = document.createElement('label');
       evidenceLabel.className = 'step-evidence-label';
       evidenceLabel.textContent = typeof t === 'function' ? t('add_photo_evidence') : 'Add photo evidence (optional)';
@@ -390,6 +726,10 @@ function hide(el) {
   }
 
   function endWizard(reason, outcome = "FAULT FOUND") {
+    if (outcome === "FAULT FOUND") {
+      window._hasReachedFaultStep = true;
+      window._lastIdentifiedFault = { reason, outcome };
+    }
     // 1. Disable buttons
     if (typeof stepBtnYes !== 'undefined') stepBtnYes.disabled = true;
     if (typeof stepBtnNo !== 'undefined') stepBtnNo.disabled = true;
@@ -1209,9 +1549,12 @@ function hide(el) {
       'Dealer / Location': value('dealerName'),
       'City': value('city'),
       'State': value('state'),
+      'Region': (typeof getRegionForState === 'function' ? getRegionForState(value('state')) : 'Other'),
       'Travels Name': value('travelsName'),
+      'Complaint Type': window._riqComplaintMode || 'Not Working',
       'Vehicle Registration No.': value('vehReg'),
       'Odometer Km': Number(value('odometer').replace(/[^0-9.]/g, '')) || 0,
+      'Kms & Date of Sale': value('odometer') ? `${value('odometer')} km` : '-',
       'Chassis No.': value('chassisNo'),
       'Model': selectedModel,
       'Vehicle Manufacturer': draftManufacturer,
@@ -1872,7 +2215,17 @@ function hide(el) {
   const ASHOK_FINAL_TEST_STEPS = new Set(['triage_q2', 'int_q5']);
 
   function isAshokFlow() {
-    return window.SELECTED_EMISSION === 'BS-IV' || window.SELECTED_EMISSION === 'BS-VI' || window.SELECTED_EMISSION === 'VECV';
+    return window.SELECTED_EMISSION === 'BS-IV' || window.SELECTED_EMISSION === 'BS-VI' || window.SELECTED_EMISSION === 'VECV' || !window.SELECTED_EMISSION;
+  }
+
+  function isEcuDisconnectStep(step) {
+    const key = (step?.key || '').toLowerCase();
+    return key === 'sb_green' || key === 'vecv_q4';
+  }
+
+  function isEcuConnectStep(step) {
+    const key = (step?.key || '').toLowerCase();
+    return key === 'sb_violet_output' || key === 'vecv_q7';
   }
 
   async function submitDiagnosticPatchWithKey(caseId, data) {
@@ -1936,6 +2289,32 @@ function hide(el) {
         title: typeof t === 'function' ? t('safety_reconnect_title') : 'Final Connector Confirmation',
         body: typeof t === 'function' ? t('safety_reconnect_body') : '<strong>Before the functional or moving test:</strong><p>Confirm all connectors are fully inserted and locked. Do not continue if any connector is loose.</p>',
         button: typeof t === 'function' ? t('safety_reconnect_button') : 'All Connectors Secure - Continue'
+      },
+      ecu_disconnect: {
+        title: typeof t === 'function' && t('ecu_disconnect_title') !== 'ecu_disconnect_title'
+          ? t('ecu_disconnect_title')
+          : 'ECU Speed Box – Disconnect Socket',
+        body: typeof t === 'function' && t(window.SELECTED_EMISSION === 'VECV' ? 'ecu_disconnect_body_vecv' : 'ecu_disconnect_body') !== (window.SELECTED_EMISSION === 'VECV' ? 'ecu_disconnect_body_vecv' : 'ecu_disconnect_body')
+          ? t(window.SELECTED_EMISSION === 'VECV' ? 'ecu_disconnect_body_vecv' : 'ecu_disconnect_body')
+          : (window.SELECTED_EMISSION === 'VECV'
+            ? '<strong>Disconnect the ECU Speed Box socket before checking pins:</strong><ol><li><strong>Disconnect the connector socket</strong> from the ECU Speed Box.</li><li>Keep the socket disconnected to measure the 3 input pins on the harness connector:<ul><li><strong>Pin 1:</strong> Yellow/Black (+24V Input)</li><li><strong>Pin 4:</strong> Green (Ground)</li><li><strong>Pin 2:</strong> Yellow/Blue (VSS Input)</li></ul></li><li>Do not connect the socket while checking these 3 input pins.</li></ol>'
+            : '<strong>Disconnect the ECU Speed Box socket before checking pins:</strong><ol><li><strong>Disconnect the connector socket</strong> from the ECU Speed Box.</li><li>Keep the socket disconnected to measure the 3 input pins on the harness connector:<ul><li><strong>Pin 1:</strong> Green (+24V Power Supply)</li><li><strong>Pin 4:</strong> Black (Chassis Ground)</li><li><strong>Pin 2:</strong> Yellow/White (Speed Signal Pulses)</li></ul></li><li>Do not connect the socket while checking these 3 input pins.</li></ol>'),
+        button: typeof t === 'function' && t('ecu_disconnect_button') !== 'ecu_disconnect_button'
+          ? t('ecu_disconnect_button')
+          : 'Socket Disconnected – Continue'
+      },
+      ecu_connect: {
+        title: typeof t === 'function' && t('ecu_connect_title') !== 'ecu_connect_title'
+          ? t('ecu_connect_title')
+          : 'ECU Speed Box – Connect Socket',
+        body: typeof t === 'function' && t(window.SELECTED_EMISSION === 'VECV' ? 'ecu_connect_body_vecv' : 'ecu_connect_body') !== (window.SELECTED_EMISSION === 'VECV' ? 'ecu_connect_body_vecv' : 'ecu_connect_body')
+          ? t(window.SELECTED_EMISSION === 'VECV' ? 'ecu_connect_body_vecv' : 'ecu_connect_body')
+          : (window.SELECTED_EMISSION === 'VECV'
+            ? '<strong>Connect the ECU Speed Box socket before checking output:</strong><ol><li><strong>Connect the socket</strong> firmly to the ECU Speed Box and confirm the locking clip is secured.</li><li>The ECU Speed Box requires +24V, Ground, and speed pulses to produce the output voltage.</li><li>Measure <strong>Pin 3 (Green/White wire - SB O/P)</strong> — it must output <strong>+24V</strong> when vehicle speed is above <strong>5 km/h</strong>.</li></ol><div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:8px 12px; border-radius:6px; margin-top:10px; font-size:13px; color:#0369a1;">ℹ️ <strong>Speed Requirement:</strong> Ensure vehicle speed is &gt; 5 km/h (or rotate wheels) during this test.</div>'
+            : '<strong>Connect the ECU Speed Box socket before checking Violet output:</strong><ol><li><strong>Connect the socket</strong> firmly to the ECU Speed Box and confirm the locking clip is secured.</li><li>The ECU Speed Box requires power, ground, and speed pulses to produce the output voltage.</li><li>Measure <strong>Pin 3 (Violet wire)</strong> — it must output <strong>+24V</strong> when vehicle speed is above <strong>5 km/h</strong>.</li></ol><div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:8px 12px; border-radius:6px; margin-top:10px; font-size:13px; color:#0369a1;">ℹ️ <strong>Speed Requirement:</strong> Ensure vehicle speed is &gt; 5 km/h (or rotate wheels) during this test.</div>'),
+        button: typeof t === 'function' && t('ecu_connect_button') !== 'ecu_connect_button'
+          ? t('ecu_connect_button')
+          : 'Socket Connected – Continue'
       }
     }[type] || null;
 
@@ -2045,11 +2424,43 @@ function hide(el) {
       }, 0);
     }
 
+    // ECU Speed Box: Disconnect socket at 1st pin (Pin 1) before checking the 3 input pins
+    if (isAshokFlow() && isEcuDisconnectStep(step)) {
+      setTimeout(() => {
+        const locationModal = document.getElementById('locationHelpModal');
+        const safetyModal = document.getElementById('ashokSafetyPopup');
+        if ((!locationModal || locationModal.classList.contains('hidden'))
+          && (!safetyModal || safetyModal.classList.contains('hidden'))
+          && !window._ashokSafetyShownFor?.[step.key]) {
+          window._ashokSafetyShownFor = window._ashokSafetyShownFor || {};
+          window._ashokSafetyShownFor[step.key] = true;
+          showAshokSafetyPopup('ecu_disconnect');
+        }
+      }, 50);
+    }
+
+    // ECU Speed Box: Connect socket at Violet (Pin 3 Output)
+    if (isAshokFlow() && isEcuConnectStep(step)) {
+      setTimeout(() => {
+        const locationModal = document.getElementById('locationHelpModal');
+        const safetyModal = document.getElementById('ashokSafetyPopup');
+        if ((!locationModal || locationModal.classList.contains('hidden'))
+          && (!safetyModal || safetyModal.classList.contains('hidden'))
+          && !window._ashokSafetyShownFor?.[step.key]) {
+          window._ashokSafetyShownFor = window._ashokSafetyShownFor || {};
+          window._ashokSafetyShownFor[step.key] = true;
+          window._ashokSpeedPopupShownFor = window._ashokSpeedPopupShownFor || {};
+          window._ashokSpeedPopupShownFor[step.key] = true;
+          showAshokSafetyPopup('ecu_connect');
+        }
+      }, 50);
+    }
+
     // Show the speed reminder for every Ashok speed-dependent test. If the
     // location helper is open, its close handler will show this afterwards.
     // Wait until the location helper has had a chance to open. The location
     // close handler will show this once for the current step if needed.
-    const needsSpeedPopup = isAshokSpeedRequiredStep(step);
+    const needsSpeedPopup = isAshokSpeedRequiredStep(step) && !isEcuConnectStep(step);
     const needsFinalSafety = isAshokFlow()
       && ASHOK_FINAL_TEST_STEPS.has((step.key || '').toLowerCase());
 
@@ -2479,12 +2890,27 @@ function hide(el) {
           renderStep(getCurrentStep());
         }
 
-        // After location modal closes, show the speed popup for any Ashok
-        // speed-dependent step.
+        // After location modal closes, show safety or speed popup as required.
         const currentStep = getCurrentStep();
         const isFinalSpeedStep = isAshokFlow()
           && ASHOK_FINAL_TEST_STEPS.has((currentStep?.key || '').toLowerCase());
-        if (!isFinalSpeedStep) showEcuSpeedPopupForStep(currentStep);
+        if (isAshokFlow() && isEcuDisconnectStep(currentStep)) {
+          if (!window._ashokSafetyShownFor?.[currentStep.key]) {
+            window._ashokSafetyShownFor = window._ashokSafetyShownFor || {};
+            window._ashokSafetyShownFor[currentStep.key] = true;
+            showAshokSafetyPopup('ecu_disconnect');
+          }
+        } else if (isAshokFlow() && isEcuConnectStep(currentStep)) {
+          if (!window._ashokSafetyShownFor?.[currentStep.key]) {
+            window._ashokSafetyShownFor = window._ashokSafetyShownFor || {};
+            window._ashokSafetyShownFor[currentStep.key] = true;
+            window._ashokSpeedPopupShownFor = window._ashokSpeedPopupShownFor || {};
+            window._ashokSpeedPopupShownFor[currentStep.key] = true;
+            showAshokSafetyPopup('ecu_connect');
+          }
+        } else if (!isFinalSpeedStep) {
+          showEcuSpeedPopupForStep(currentStep);
+        }
       };
     }
   }
@@ -3102,8 +3528,17 @@ function hide(el) {
   function handleBack() {
     if (guidedHistory.length === 0) return;
 
+    const leavingKey = currentKey;
     const prevState = guidedHistory.pop();
     currentKey = prevState.key;
+
+    // Reset safety flags for the step being left so re-entry prompts cleanly
+    if (window._ashokSafetyShownFor && leavingKey) {
+      delete window._ashokSafetyShownFor[leavingKey];
+    }
+    if (window._ashokSpeedPopupShownFor && leavingKey) {
+      delete window._ashokSpeedPopupShownFor[leavingKey];
+    }
 
     // Close any instruction or terminal overlay before showing the restored step.
     window._nextKeyQueue = null;

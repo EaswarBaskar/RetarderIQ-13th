@@ -199,7 +199,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                     {renderField('Travels / Fleet Name', p['Travels Name'])}
                     {renderField('Vehicle Manufacturer', oem)}
                     {renderField('Model', p.Model)}
-                    {renderField('Odometer / Sale Date', p['Odometer Km'] || p['Kms & Date of Sale'])}
+                    {renderField('Odometer / Sale Date', p['Odometer Km'] ? `${Number(p['Odometer Km']).toLocaleString()} km` : p['Kms & Date of Sale'])}
                     {renderField('Chassis No.', p['Chassis No.'])}
                     {renderField('Emission Standard', p['Emission Standard'])}
                   </div>
@@ -223,7 +223,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                       'Current Step',
                       p['Diagnostic Current Step Label'] || p['Diagnostic Current Step']
                     )}
-                    {renderField('Duration', p['Diagnostic Duration'])}
+                    {renderField('Duration', p['Diagnostic Duration'] || (caseItem.created_at && p['Session Last Seen'] ? `${Math.max(1, Math.round((new Date(p['Session Last Seen']).getTime() - new Date(caseItem.created_at).getTime()) / 60000))} mins` : '—'))}
                     {renderField('Date Attended', p['Complaint Attended on'] || dateStr)}
                     {renderField('Language Used', p['Diagnostic Language Name'])}
                   </div>
@@ -288,6 +288,32 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                     Customer voice / field complaint:
                   </strong>
                   {p['Customer Voice / Field Complaints reported']}
+                </div>
+              </div>
+            )}
+
+            {/* Diagnostic Feedback */}
+            {p['Diagnostic Feedback'] && (p['Diagnostic Feedback'].clarity || p['Diagnostic Feedback'].rating) && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+                  Diagnostic Feedback
+                </h3>
+                <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-amber-900">Diagnostic Clarity:</span>
+                    <span className="text-amber-500 font-bold text-sm tracking-widest">
+                      {'★'.repeat(Math.max(1, Math.min(5, Number(p['Diagnostic Feedback'].clarity || p['Diagnostic Feedback'].rating) || 0)))}
+                      {'☆'.repeat(5 - Math.max(1, Math.min(5, Number(p['Diagnostic Feedback'].clarity || p['Diagnostic Feedback'].rating) || 0)))}
+                    </span>
+                    <span className="text-slate-600 font-semibold">
+                      ({p['Diagnostic Feedback'].clarity || p['Diagnostic Feedback'].rating} / 5)
+                    </span>
+                  </div>
+                  {p['Diagnostic Feedback'].comments && (
+                    <div className="text-slate-600 italic">
+                      "{p['Diagnostic Feedback'].comments}"
+                    </div>
+                  )}
                 </div>
               </div>
             )}
