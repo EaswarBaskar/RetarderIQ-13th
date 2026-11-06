@@ -41,9 +41,11 @@ const COLORS = [
 const STATUS_COLORS: Record<string, string> = {
   'FAULT FOUND': '#ef4444',
   'WORKING SATISFACTORY': '#10b981',
+  'CLOSED_BY_ADMIN': '#8b5cf6',
+  'CLOSED BY ADMIN': '#8b5cf6',
   'INCOMPLETE': '#f59e0b',
   'IN PROGRESS': '#3b82f6',
-  'PAUSED': '#8b5cf6',
+  'PAUSED': '#a855f7',
   'FORCE CLOSED / STALE': '#64748b',
 };
 

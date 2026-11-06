@@ -209,6 +209,58 @@ export let mockCases: DiagnosticCase[] = [
     },
   },
   {
+    id: 'c107-closed-by-admin',
+    case_number: 'RIQ-2026-007',
+    created_at: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
+    payload: {
+      'Diagnostic Case ID': 'RIQ-2026-007',
+      'Diagnostic Status': 'CLOSED_BY_ADMIN',
+      'Lifecycle Status': 'CLOSED',
+      'Session State': 'CLOSED_BY_ADMIN',
+      'Vehicle Manufacturer': 'TATA MOTORS',
+      'Model': 'TML - 1622',
+      'Vehicle Registration No.': 'KA 01 MJ 5521',
+      'Chassis No.': 'MAT551029L3M99812',
+      'Emission Standard': 'BS-VI',
+      'Odometer Km': '42,800 km',
+      'Kms & Date of Sale': '42,800 km · 14-Jan-2024',
+      'FSE Name': 'M. Suresh',
+      'Technician Phone': '+91 98451 77665',
+      'Dealer / Location': 'Prerana Motors - Peenya Hub',
+      'City': 'Bengaluru',
+      'State': 'Karnataka',
+      'Region': 'South',
+      'Complaint Type': 'Retarder stage 1 not operating',
+      'Diagnostic Duration': '12 mins',
+      'Suspected Product': '10A Control Fuse & Ground Wiring',
+      'Recommended Part No.': 'FUSE-10A-BLADE',
+      'Replacement Status': 'REPLACED',
+      'Vehicle under warranty period?': 'Yes',
+      'Repeat complaint? Yes / No': 'No',
+      'Diagnostic Language Name': 'Kannada',
+      'Customer Voice / Field Complaints reported': 'Driver reported retarder indicator flickered. Found loose grounding bolt at chassis earthing lug.',
+      'Admin Resolution': {
+        outcome: 'Fault Found & Rectified',
+        suspectedPart: '10A Control Fuse & Chassis Ground Connection',
+        remarks: 'Verified telephonically with Electrician Suresh. 10A fuse replaced and chassis ground lug re-torqued. Vehicle road-tested OK on Peenya flyover.',
+        closedAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+        closedBy: 'Admin (admin@retarderiq.com)'
+      },
+      'Diagnostic Fault Details': [
+        {
+          title: 'Retarder ECU Power & Ground Circuit Intermittent',
+          action: 'Root Cause: Corroded ground lug caused high impedance drop. Corrective Action: Clean ground surface, replace 10A fuse and apply dielectric grease.',
+          partNo: 'FUSE-10A-BLADE',
+          brand: 'Brakes India'
+        }
+      ],
+      'Diagnostic Step History': [
+        { question: 'Is supply voltage to Retarder ECU between 24V and 28V DC?', response: 'No' },
+        { question: 'Check 10A fuse in central electrical box. Is fuse intact?', response: 'No' }
+      ]
+    }
+  },
+  {
     id: 'c106-ashok-satisfactory',
     case_number: 'RIQ-2026-006',
     created_at: new Date(Date.now() - 1000 * 60 * 1200).toISOString(),

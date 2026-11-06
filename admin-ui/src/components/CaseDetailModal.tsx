@@ -8,7 +8,8 @@ import {
   normalizeFaults,
   normalizeHistory,
 } from '../lib/diagnosticReportRenderer';
-import { Printer, CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Printer, CheckCircle, AlertTriangle, HelpCircle, PhoneCall, MessageSquare, Copy, Check, ExternalLink, ShieldCheck } from 'lucide-react';
+import { getSuggestedResolutionPart } from '../lib/diagnosticUtils';
 
 interface CaseDetailModalProps {
   caseItem: DiagnosticCase | null;
@@ -27,6 +28,15 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
   const [selectedRegion, setSelectedRegion] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<string>('');
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+
+  // Admin Tele-Verification state
+  const [showAdminCloseModal, setShowAdminCloseModal] = useState(false);
+  const [adminOutcome, setAdminOutcome] = useState('Fault Found & Rectified');
+  const [adminSuspectedPart, setAdminSuspectedPart] = useState('');
+  const [adminRemarks, setAdminRemarks] = useState('');
+  const [isSubmittingAdminClose, setIsSubmittingAdminClose] = useState(false);
+  const [adminCloseError, setAdminCloseError] = useState('');
+  const [whatsAppNotice, setWhatsAppNotice] = useState('');
 
   if (!caseItem) return null;
 
@@ -66,6 +76,71 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
     printDiagnosticReport(caseItem);
   };
 
+  const handleOpenAdminCloseModal = () => {
+    const suggested = getSuggestedResolutionPart(p);
+    const techName = p['FSE Name'] || 'Electrician';
+    setAdminSuspectedPart(suggested);
+    setAdminOutcome('Fault Found & Rectified');
+    setAdminRemarks(`Verified telephonically with Electrician ${techName}. ${suggested} checked/replaced, vehicle road-tested satisfactory.`);
+    setAdminCloseError('');
+    setShowAdminCloseModal(true);
+  };
+
+  const handleSubmitAdminClose = async () => {
+    if (!adminSuspectedPart.trim()) {
+      setAdminCloseError('Please enter the suspected/replaced part.');
+      return;
+    }
+    setIsSubmittingAdminClose(true);
+    setAdminCloseError('');
+    try {
+      await api.closeCaseByAdmin(caseItem.id, {
+        outcome: adminOutcome,
+        suspectedPart: adminSuspectedPart.trim(),
+        remarks: adminRemarks.trim(),
+      });
+      caseItem.payload['Diagnostic Status'] = 'CLOSED_BY_ADMIN';
+      caseItem.payload['Lifecycle Status'] = 'CLOSED';
+      caseItem.payload['Session State'] = 'CLOSED_BY_ADMIN';
+      caseItem.payload['Admin Resolution'] = {
+        outcome: adminOutcome,
+        suspectedPart: adminSuspectedPart.trim(),
+        remarks: adminRemarks.trim(),
+        closedAt: new Date().toISOString(),
+        closedBy: 'Admin',
+      };
+      setShowAdminCloseModal(false);
+      onCaseUpdated();
+    } catch (err: any) {
+      setAdminCloseError(err.message || 'Failed to close case.');
+    } finally {
+      setIsSubmittingAdminClose(false);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    const fse = p['FSE Name'] || 'Electrician';
+    const vehicle = p['Vehicle Registration No.'] || p['Chassis No.'] || 'vehicle';
+    const cId = caseItem.case_number || p['Diagnostic Case ID'] || caseItem.id;
+    const confirmUrl = `${window.location.origin}/confirm.html?c=${encodeURIComponent(cId)}`;
+    const message = `Hi ${fse}, RetarderIQ showed a fault on vehicle ${vehicle}. Did you rectify the issue? Tap here to confirm in 1 second: ${confirmUrl}`;
+
+    const rawPhone = String(p['Technician Phone'] || '').replace(/[^0-9]/g, '');
+    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+    const waUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(confirmUrl);
+      setWhatsAppNotice('WhatsApp opened! 1-Tap link copied to clipboard.');
+      setTimeout(() => setWhatsAppNotice(''), 4500);
+    }
+  };
+
   const renderStatusBadge = () => {
     if (status === 'WORKING SATISFACTORY') {
       return (
@@ -80,6 +155,14 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
           <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
           {status}
+        </span>
+      );
+    }
+    if (status === 'CLOSED_BY_ADMIN' || status === 'CLOSED BY ADMIN') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-300">
+          <PhoneCall className="h-3.5 w-3.5 text-purple-600" />
+          CLOSED BY ADMIN (VERIFIED)
         </span>
       );
     }
@@ -141,17 +224,54 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
               )}
             </div>
 
-            {/* Print / Export PDF button */}
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handlePrint}
-              className="h-8 text-xs font-bold bg-[#0b5daa] hover:bg-[#084885] text-white shadow-xs"
-            >
-              <Printer className="h-3.5 w-3.5 mr-1.5" />
-              Print / Export PDF
-            </Button>
+            {/* Quick Actions: Admin Tele-Verification & WhatsApp 1-Tap & Print */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* WhatsApp 1-Tap Button */}
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                title="Send WhatsApp 1-Tap Quick-Close Link to Technician"
+                className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                WhatsApp 1-Tap
+              </button>
+
+              {/* Admin Close Button */}
+              <button
+                type="button"
+                onClick={handleOpenAdminCloseModal}
+                title="Mark case as resolved via telephonic verification with technician"
+                className="h-8 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <PhoneCall className="h-3.5 w-3.5" />
+                Mark Resolved by Admin
+              </button>
+
+              {/* Print / Export PDF button */}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handlePrint}
+                className="h-8 text-xs font-bold bg-[#0b5daa] hover:bg-[#084885] text-white shadow-xs"
+              >
+                <Printer className="h-3.5 w-3.5 mr-1.5" />
+                Print PDF
+              </Button>
+            </div>
           </div>
+
+          {whatsAppNotice && (
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs px-3.5 py-2 rounded-lg flex items-center justify-between animate-in fade-in">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                {whatsAppNotice}
+              </span>
+              <button onClick={() => setWhatsAppNotice('')} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* ============================================================== */}
           {/* EXACT 1-to-1 Retarder IQ Diagnostic Report Layout             */}
@@ -217,6 +337,42 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                     <span className="text-xs font-bold text-slate-600 mr-2">Outcome:</span>
                     {renderStatusBadge()}
                   </div>
+
+                  {p['Admin Resolution'] && (
+                    <div className="p-3 mb-2 rounded-lg border border-purple-200 bg-purple-50 text-xs text-purple-950 space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-purple-900">
+                        <PhoneCall className="h-3.5 w-3.5 text-purple-600" />
+                        <span>Admin Tele-Verification:</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-purple-200 text-purple-800 font-extrabold uppercase">
+                          {p['Admin Resolution'].outcome || 'Fault Found & Rectified'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-purple-900">
+                        <strong>Action Taken:</strong> {p['Admin Resolution'].suspectedPart || 'Inspected & rectified'}
+                      </div>
+                      {p['Admin Resolution'].remarks && (
+                        <div className="text-[11px] text-purple-800 italic bg-white/70 p-1.5 rounded border border-purple-100">
+                          "{p['Admin Resolution'].remarks}"
+                        </div>
+                      )}
+                      <div className="text-[10px] text-purple-600">
+                        Verified by {p['Admin Resolution'].closedBy || 'Admin'} · {p['Admin Resolution'].closedAt ? new Date(p['Admin Resolution'].closedAt).toLocaleString() : ''}
+                      </div>
+                    </div>
+                  )}
+
+                  {p['Technician Confirmation'] && (
+                    <div className="p-2.5 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-950 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="font-bold text-emerald-900">Confirmed via WhatsApp:</span>
+                        <span className="font-semibold text-emerald-800">{p['Technician Confirmation'].outcome || 'Repaired & Tested OK'}</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-600 font-medium">
+                        {p['Technician Confirmation'].confirmedAt ? new Date(p['Technician Confirmation'].confirmedAt).toLocaleDateString() : ''}
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {renderField('Session State', p['Session State'])}
                     {renderField(
@@ -456,6 +612,157 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* 15-Second Admin Tele-Verification Closure Modal */}
+      {showAdminCloseModal && (
+        <Modal
+          isOpen={showAdminCloseModal}
+          onClose={() => !isSubmittingAdminClose && setShowAdminCloseModal(false)}
+          maxWidth="lg"
+        >
+          <div className="space-y-4 text-slate-800">
+            {/* Header */}
+            <div className="flex items-center gap-3 pb-3 border-b border-purple-100">
+              <div className="p-2.5 rounded-xl bg-purple-100 text-purple-700">
+                <PhoneCall className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Telephonic Verification & Admin Closure
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Verify resolution with technician and officially close case <span className="font-bold text-purple-700">{caseNumber}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Contact & Vehicle Info Strip */}
+            <div className="bg-purple-50/70 border border-purple-200/80 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <div className="text-[10px] font-bold text-purple-700 uppercase">Electrician / FSE</div>
+                <div className="font-bold text-slate-900 mt-0.5">{p['FSE Name'] || 'Technician'}</div>
+                {p['Technician Phone'] ? (
+                  <a
+                    href={`tel:${p['Technician Phone']}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 hover:text-purple-800 hover:underline mt-0.5"
+                  >
+                    <PhoneCall className="h-3 w-3" />
+                    {p['Technician Phone']}
+                  </a>
+                ) : (
+                  <span className="text-slate-400 text-[11px]">No phone listed</span>
+                )}
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-purple-700 uppercase">Vehicle / Reg No.</div>
+                <div className="font-bold text-slate-900 font-mono mt-0.5">
+                  {p['Vehicle Registration No.'] || p['Chassis No.'] || 'Vehicle'}
+                </div>
+                <div className="text-[11px] text-slate-600 truncate mt-0.5">
+                  {p['Dealer / Location'] || p.City || 'Depot Workshop'}
+                </div>
+              </div>
+            </div>
+
+            {/* Outcome Selection */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                Resolution Outcome
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'Fault Found & Rectified', label: 'Fault Found & Rectified', icon: '🔧' },
+                  { id: 'Working Satisfactory', label: 'Working Satisfactory', icon: '✅' },
+                  { id: 'Customer/Operator Error', label: 'Customer/Op Error', icon: 'ℹ️' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setAdminOutcome(opt.id);
+                      setAdminRemarks(`Verified telephonically with Electrician ${p['FSE Name'] || 'technician'}. Outcome: ${opt.id}. ${adminSuspectedPart} checked, vehicle road-tested satisfactory.`);
+                    }}
+                    className={`p-2.5 rounded-lg border text-left text-xs font-bold transition-all cursor-pointer ${
+                      adminOutcome === opt.id
+                        ? 'border-purple-600 bg-purple-50 text-purple-900 ring-2 ring-purple-600/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="text-base mb-0.5">{opt.icon}</div>
+                    <div>{opt.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Suspected Part / Action Taken */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                Action Taken / Suspected Part <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={adminSuspectedPart}
+                onChange={(e) => setAdminSuspectedPart(e.target.value)}
+                placeholder="e.g. Wiring Harness / 10A Fuse / Retarder Coil"
+                className="w-full h-9 px-3 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Auto-suggested from the diagnostic step reached by the electrician. You can edit this.
+              </p>
+            </div>
+
+            {/* Admin Remarks */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                Admin Telephonic Remarks <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={adminRemarks}
+                onChange={(e) => setAdminRemarks(e.target.value)}
+                placeholder="Enter summary of phone call with technician..."
+                className="w-full p-2.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-purple-600 focus:outline-none leading-relaxed"
+              />
+            </div>
+
+            {adminCloseError && (
+              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                {adminCloseError}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdminCloseModal(false)}
+                disabled={isSubmittingAdminClose}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSubmitAdminClose}
+                disabled={isSubmittingAdminClose}
+                className="text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 shadow-sm"
+              >
+                {isSubmittingAdminClose ? (
+                  <>Saving Verification...</>
+                ) : (
+                  <>
+                    <PhoneCall className="h-3.5 w-3.5" />
+                    Confirm & Close Case
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Image Preview Modal */}
       {previewImage && (

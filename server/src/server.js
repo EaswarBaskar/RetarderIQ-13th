@@ -898,6 +898,38 @@ app.get('/api/admin/diagnostics/:caseId', requireAuth, requireRole('admin'), asy
 }));
 
 app.patch('/api/admin/diagnostics/:caseId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  if (req.body?.admin_resolution) {
+    const resolution = {
+      outcome: String(req.body.admin_resolution.outcome || 'Fault Found & Rectified').trim(),
+      suspectedPart: String(req.body.admin_resolution.suspectedPart || '').trim(),
+      remarks: String(req.body.admin_resolution.remarks || '').trim(),
+      closedAt: new Date().toISOString(),
+      closedBy: req.user.email || 'Admin',
+    };
+    const updateObj = {
+      'Diagnostic Status': 'CLOSED_BY_ADMIN',
+      'Lifecycle Status': 'CLOSED',
+      'Session State': 'CLOSED_BY_ADMIN',
+      'Admin Resolution': resolution,
+    };
+    const result = await pool.query(
+      `UPDATE diagnostic_cases
+          SET payload = payload || $1::jsonb,
+              updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, case_number, payload - ARRAY['GPS Latitude', 'GPS Longitude', 'GPS Address'] AS payload,
+        created_at, forwarded_at, forward_status, forward_error`,
+      [JSON.stringify(updateObj), req.params.caseId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Case not found.' });
+    notifyAdminClients('diagnostic-updated', {
+      caseId: result.rows[0].id,
+      caseNumber: result.rows[0].case_number,
+      status: 'CLOSED_BY_ADMIN',
+    });
+    return res.json(result.rows[0]);
+  }
+
   const allowedRegions = new Set(['North', 'South', 'East', 'West', 'Other']);
   const region = String(req.body?.region || '').trim();
   if (!allowedRegions.has(region)) return res.status(400).json({ error: 'Select a valid region.' });
@@ -937,6 +969,71 @@ app.get('/admin', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   return res.sendFile(path.join(rootDir, 'admin.html'));
 });
+// Public endpoints for WhatsApp 1-Tap Quick-Close
+app.get('/api/public/case/:caseId/summary', asyncHandler(async (req, res) => {
+  const caseParam = String(req.params.caseId || '').trim();
+  const isUuid = /^[0-9a-f-]{36}$/i.test(caseParam);
+  const result = await pool.query(
+    `SELECT id, case_number, payload - ARRAY['GPS Latitude', 'GPS Longitude', 'GPS Address'] AS payload, created_at, updated_at
+       FROM diagnostic_cases
+      WHERE ${isUuid ? 'id = $1 OR case_number = $1' : 'case_number = $1'}`,
+    [caseParam]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Diagnostic case not found.' });
+  const row = result.rows[0];
+  const p = row.payload || {};
+  return res.json({
+    id: row.id,
+    case_number: row.case_number || p['Diagnostic Case ID'] || row.id.substring(0, 8),
+    vehicle: p['Vehicle Registration No.'] || p['Chassis No.'] || 'N/A',
+    technician: p['FSE Name'] || 'Technician',
+    phone: p['Technician Phone'] || '',
+    dealer: p['Dealer / Location'] || '',
+    status: p['Diagnostic Status'] || 'INCOMPLETE',
+    suspectedFault: p['Diagnostic Fault Details']?.[0]?.title || p['Recommended Part No.'] || p['Suspected Product'] || p['Diagnostic Current Step Label'] || 'Component Inspection',
+    actionRequired: p['Diagnostic Fault Details']?.[0]?.action || '',
+    closed: ['CLOSED_BY_ADMIN', 'COMPLETED', 'WORKING SATISFACTORY'].includes(p['Diagnostic Status']) || p['Lifecycle Status'] === 'CLOSED',
+    createdAt: row.created_at,
+  });
+}));
+
+app.post('/api/public/case/:caseId/confirm', rateLimit({ max: 20 }), asyncHandler(async (req, res) => {
+  const caseParam = String(req.params.caseId || '').trim();
+  const isUuid = /^[0-9a-f-]{36}$/i.test(caseParam);
+  const confirmation = {
+    outcome: 'REPAIRED_AND_TESTED_OK',
+    confirmedAt: new Date().toISOString(),
+    channel: 'WhatsApp 1-Tap',
+    userAgent: req.headers['user-agent'] || '',
+  };
+  const updateObj = {
+    'Diagnostic Status': 'WORKING SATISFACTORY',
+    'Lifecycle Status': 'CLOSED',
+    'Session State': 'COMPLETED',
+    'Technician Confirmation': confirmation,
+  };
+  const result = await pool.query(
+    `UPDATE diagnostic_cases
+        SET payload = payload || $1::jsonb,
+            updated_at = NOW()
+      WHERE ${isUuid ? 'id = $2 OR case_number = $2' : 'case_number = $2'}
+      RETURNING id, case_number, payload, created_at, updated_at`,
+    [JSON.stringify(updateObj), caseParam]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Case not found or already closed.' });
+  notifyAdminClients('diagnostic-updated', {
+    caseId: result.rows[0].id,
+    caseNumber: result.rows[0].case_number,
+    status: 'WORKING SATISFACTORY',
+  });
+  return res.json({ success: true, caseNumber: result.rows[0].case_number });
+}));
+
+app.get('/confirm', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.sendFile(path.join(rootDir, 'confirm.html'));
+});
+
 app.get('*', (_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
 
 app.use((error, _req, res, _next) => {

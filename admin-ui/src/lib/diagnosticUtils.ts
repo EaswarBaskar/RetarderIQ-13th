@@ -35,7 +35,8 @@ export function getRegion(payload: Record<string, any>): string {
 
 export function getSessionStatus(payload: Record<string, any>): string {
   const outcome = payload?.['Diagnostic Status'] || 'INCOMPLETE';
-  if (['FAULT FOUND', 'WORKING SATISFACTORY'].includes(outcome)) return outcome;
+  if (['FAULT FOUND', 'WORKING SATISFACTORY', 'CLOSED_BY_ADMIN', 'CLOSED BY ADMIN'].includes(outcome)) return outcome;
+  if (payload?.['Admin Resolution'] || payload?.['Closed By'] === 'ADMIN') return 'CLOSED_BY_ADMIN';
   const state = String(payload?.['Session State'] || '').toUpperCase();
   const lastSeen = Date.parse(payload?.['Session Last Seen'] || '');
   if (state === 'PAUSED') return 'PAUSED';
@@ -44,6 +45,35 @@ export function getSessionStatus(payload: Record<string, any>): string {
     return 'IN PROGRESS';
   }
   return outcome;
+}
+
+/**
+ * Extracts or guesses the most probable suspected part/component or action
+ * from the session payload to pre-fill the Admin Closure modal.
+ */
+export function getSuggestedResolutionPart(payload: Record<string, any>): string {
+  if (!payload) return 'Wiring Harness / Fuse / Retarder Coil';
+  const faults = payload['Diagnostic Fault Details'];
+  if (Array.isArray(faults) && faults.length > 0 && faults[0]?.title) {
+    return faults[0].title;
+  }
+  if (payload['Recommended Part No.']) {
+    return `Recommended Part: ${payload['Recommended Part No.']}`;
+  }
+  const suspected = String(payload['Suspected Product'] || '').trim();
+  if (suspected && !['INSPECTION IN PROGRESS', 'TBD', 'NOT IDENTIFIED', '-'].includes(suspected.toUpperCase())) {
+    return suspected;
+  }
+  const stepLabel = String(payload['Diagnostic Current Step Label'] || payload['Diagnostic Current Step'] || '').trim();
+  if (stepLabel && stepLabel !== '-') {
+    return stepLabel;
+  }
+  const history = payload['Diagnostic Step History'];
+  if (Array.isArray(history) && history.length > 0) {
+    const last = history[history.length - 1];
+    if (last?.question) return last.question;
+  }
+  return 'Wiring Harness / Fuse / Retarder Coil';
 }
 
 export function getManufacturer(payload: Record<string, any>): string {

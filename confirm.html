@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RetarderIQ - 1-Tap Quick Verification</title>
+  <link rel="icon" type="image/png" href="asset/optimized/retarder-icon.png">
+  <link rel="stylesheet" href="css/fonts.css">
+  <style>
+    :root {
+      --primary: #0b5daa;
+      --primary-dark: #084885;
+      --primary-light: #e8f2fc;
+      --emerald: #059669;
+      --emerald-dark: #047857;
+      --emerald-light: #ecfdf5;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-600: #475569;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background: linear-gradient(135deg, #f0f4f9 0%, #e2e8f0 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      color: var(--slate-900);
+    }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px -15px rgba(11, 93, 170, 0.18), 0 0 1px 1px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff;
+      padding: 24px 20px 20px;
+      text-align: center;
+      position: relative;
+    }
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .header-logo img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    .header-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+      font-weight: 500;
+      color: #dbeafe;
+    }
+    .lang-selector {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: var(--slate-50);
+      border-bottom: 1px solid var(--slate-200);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .lang-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--slate-200);
+      background: #ffffff;
+      color: var(--slate-600);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .lang-pill.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .content {
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .plate-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #ffffff;
+      border: 2px solid var(--slate-900);
+      border-radius: 8px;
+      padding: 6px 14px;
+      margin: 0 auto;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .plate-ind {
+      font-size: 9px;
+      font-weight: 900;
+      color: #0b5daa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-right: 8px;
+      margin-right: 8px;
+      border-right: 1.5px solid var(--slate-200);
+      line-height: 1;
+    }
+    .plate-ind span { font-size: 7px; color: #f59e0b; margin-top: 2px; }
+    .plate-no {
+      font-family: monospace, sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--slate-900);
+    }
+    .info-card {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 12px;
+      gap: 8px;
+    }
+    .info-label {
+      color: var(--slate-600);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .info-value {
+      color: var(--slate-900);
+      font-weight: 700;
+      text-align: right;
+      word-break: break-word;
+    }
+    .fault-highlight {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 12px 14px;
+      text-align: left;
+    }
+    .fault-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #b91c1c;
+      margin-bottom: 4px;
+    }
+    .fault-desc {
+      font-size: 13px;
+      font-weight: 700;
+      color: #7f1d1d;
+      line-height: 1.4;
+    }
+    .prompt-box {
+      text-align: center;
+      padding: 4px 8px;
+    }
+    .prompt-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--slate-900);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .prompt-desc {
+      font-size: 12px;
+      color: var(--slate-600);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .btn-confirm {
+      width: 100%;
+      background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-dark) 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 16px;
+      padding: 18px 20px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      box-shadow: 0 10px 20px -5px rgba(5, 150, 105, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .btn-confirm:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 24px -5px rgba(5, 150, 105, 0.5);
+    }
+    .btn-confirm:active {
+      transform: scale(0.98);
+    }
+    .btn-confirm-sub {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.9;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: none;
+      color: var(--slate-600);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      padding: 8px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .success-card {
+      display: none;
+      text-align: center;
+      padding: 36px 20px;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeIn 0.3s ease-out;
+    }
+    .success-icon {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: var(--emerald-light);
+      border: 3px solid var(--emerald);
+      color: var(--emerald);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 10px 20px -5px rgba(5, 150, 105, 0.3);
+    }
+    .success-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--slate-900);
+    }
+    .success-desc {
+      font-size: 13px;
+      color: var(--slate-600);
+      line-height: 1.5;
+      font-weight: 500;
+    }
+    .success-close-hint {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: var(--slate-100);
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--slate-600);
+    }
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #ffffff;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-logo">
+        <img src="asset/optimized/retarder-icon.png" alt="RetarderIQ">
+        <span class="header-title">RETARDER IQ</span>
+      </div>
+      <div class="header-subtitle" id="headerSubtitle">Field Diagnostic Quick-Verification</div>
+    </div>
+
+    <!-- Language Selector Bar -->
+    <div class="lang-selector">
+      <button class="lang-pill active" onclick="switchLang('en')">English</button>
+      <button class="lang-pill" onclick="switchLang('ta')">தமிழ்</button>
+      <button class="lang-pill" onclick="switchLang('hi')">हिन्दी</button>
+      <button class="lang-pill" onclick="switchLang('kn')">ಕನ್ನಡ</button>
+      <button class="lang-pill" onclick="switchLang('ml')">മലയാളം</button>
+      <button class="lang-pill" onclick="switchLang('te')">తెలుగు</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="content" id="mainCard">
+      <!-- Vehicle Plate Display -->
+      <div class="plate-badge">
+        <div class="plate-ind">IND<span>🇮🇳</span></div>
+        <div class="plate-no" id="vehicleReg">TN 09 BK 4521</div>
+      </div>
+
+      <!-- Case Info Card -->
+      <div class="info-card">
+        <div class="info-row">
+          <span class="info-label" id="labelCase">Case ID:</span>
+          <span class="info-value" id="caseNumber">RIQ-2026-001</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label" id="labelTech">Technician:</span>
+          <span class="info-value" id="techName">R. Karthik</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label" id="labelDealer">Dealer / Location:</span>
+          <span class="info-value" id="dealerName">TVS Mobility Workshop</span>
+        </div>
+      </div>
+
+      <!-- Fault Identified Highlight -->
+      <div class="fault-highlight" id="faultBox">
+        <div class="fault-label" id="labelFault">Identified Fault / Component:</div>
+        <div class="fault-desc" id="faultDesc">Air Pressure Switch Assembly (APS) - Replace / Rewire</div>
+      </div>
+
+      <!-- Prompt Question -->
+      <div class="prompt-box">
+        <h2 class="prompt-title" id="promptTitle">Did you find and rectify this issue?</h2>
+        <p class="prompt-desc" id="promptDesc">Tap below to confirm that the vehicle has been repaired and tested satisfactory.</p>
+      </div>
+
+      <!-- 1-Tap Action Button -->
+      <button class="btn-confirm" id="btnConfirm" onclick="handleConfirm()">
+        <span id="btnText">✅ Yes, Repaired & Tested OK</span>
+        <span class="btn-confirm-sub" id="btnSub">1-Tap Instant Case Completion</span>
+      </button>
+
+      <button class="btn-secondary" id="btnCancel" onclick="handleKeepOpen()">
+        I need more time for testing (Keep In Progress)
+      </button>
+    </div>
+
+    <!-- Success Screen (Shown on confirmation) -->
+    <div class="success-card" id="successCard">
+      <div class="success-icon">✓</div>
+      <h2 class="success-title" id="successTitle">Repaired & Verified!</h2>
+      <p class="success-desc" id="successDesc">
+        Thank you. Case <strong id="successCaseNo">RIQ-2026-001</strong> on vehicle <strong id="successVehicleNo">TN 09 BK 4521</strong> is now marked as <strong>Completed & Working Satisfactory</strong>.<br><br>
+        Your service manager and depot supervisor have been notified.
+      </p>
+      <div class="success-close-hint" id="successCloseHint">
+        You can now safely close this browser window.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const translations = {
+      en: {
+        subtitle: 'Field Diagnostic Quick-Verification',
+        labelCase: 'Case ID:',
+        labelTech: 'Technician:',
+        labelDealer: 'Dealer / Location:',
+        labelFault: 'Identified Fault / Component:',
+        promptTitle: 'Did you find and rectify this issue?',
+        promptDesc: 'Tap below to confirm that the vehicle has been repaired and tested satisfactory.',
+        btnText: '✅ Yes, Repaired & Tested OK',
+        btnSub: '1-Tap Instant Case Completion',
+        btnCancel: 'I need more time for testing (Keep In Progress)',
+        successTitle: 'Repaired & Verified!',
+        successDesc: 'Thank you. The diagnostic case has been marked as Completed & Working Satisfactory. Your service manager has been notified.',
+        successClose: 'You can now safely close this browser window.',
+        alreadyClosedTitle: 'Already Completed',
+        alreadyClosedDesc: 'This diagnostic case was already confirmed and marked as resolved. Thank you!'
+      },
+      ta: {
+        subtitle: 'களக் கண்டறிதல் உடனடி உறுதிப்படுத்தல்',
+        labelCase: 'வழக்கு எண்:',
+        labelTech: 'தொழில்நுட்ப வல்லுநர்:',
+        labelDealer: 'டீலர் / பணிமனை:',
+        labelFault: 'கண்டறியப்பட்ட பழுது / பாகம்:',
+        promptTitle: 'இந்த வாகனத்தில் பழுது சரிசெய்யப்பட்டதா?',
+        promptDesc: 'வாகனம் பழுதுபார்க்கப்பட்டு, சோதனை செய்யப்பட்டு திருப்திகரமாக உள்ளது என்பதை உறுதிப்படுத்த கீழே தட்டவும்.',
+        btnText: '✅ ஆம், சரிசெய்யப்பட்டது & சோதனை OK',
+        btnSub: 'ஒரே தட்டில் அறிக்கையை முடிக்கவும்',
+        btnCancel: 'இன்னும் கூடுதல் சோதனை தேவை (திறந்தே வைக்கவும்)',
+        successTitle: 'வெற்றிகரமாக உறுதிப்படுத்தப்பட்டது!',
+        successDesc: 'நன்றி. வாகனப் பழுது சரிசெய்யப்பட்டு அறிக்கை வெற்றிகரமாக முடிக்கப்பட்டது. உங்கள் மேலாளருக்குத் தெரிவிக்கப்பட்டது.',
+        successClose: 'நீங்கள் இப்போது இந்தத் திரையை மூடலாம்.',
+        alreadyClosedTitle: 'ஏற்கனவே முடிக்கப்பட்டது',
+        alreadyClosedDesc: 'இந்த அறிக்கை ஏற்கனவே சரிபார்க்கப்பட்டு முடிக்கப்பட்டது. நன்றி!'
+      },
+      hi: {
+        subtitle: 'फील्ड डायग्नोस्टिक त्वरित सत्यापन',
+        labelCase: 'केस आईडी:',
+        labelTech: 'टेक्नीशियन:',
+        labelDealer: 'डीलर / वर्कशॉप:',
+        labelFault: 'पहचानी गई खराबी / घटक:',
+        promptTitle: 'क्या आपने इस खराबी को ठीक कर दिया है?',
+        promptDesc: 'यह पुष्टि करने के लिए नीचे टैप करें कि वाहन की मरम्मत कर दी गई है और परीक्षण सफल रहा है।',
+        btnText: '✅ हाँ, ठीक हो गया और टेस्ट सफल',
+        btnSub: '1-टैप में केस तुरंत बंद करें',
+        btnCancel: 'मुझे अभी और टेस्टिंग करनी है (खुला रखें)',
+        successTitle: 'सफलतापूर्वक सत्यापित!',
+        successDesc: 'धन्यवाद। डायग्नोस्टिक केस को पूर्ण और संतोषजनक के रूप में चिह्नित किया गया है। आपके सर्विस मैनेजर को सूचित कर दिया गया है।',
+        successClose: 'अब आप इस विंडो को सुरक्षित रूप से बंद कर सकते हैं।',
+        alreadyClosedTitle: 'पहले से पूर्ण',
+        alreadyClosedDesc: 'यह केस पहले ही सत्यापित और बंद किया जा चुका है। धन्यवाद!'
+      },
+      kn: {
+        subtitle: 'ಕ್ಷೇತ್ರ ರೋಗನಿರ್ಣಯ ತ್ವರಿತ ಪರಿಶೀಲನೆ',
+        labelCase: 'ಕೇಸ್ ಐಡಿ:',
+        labelTech: 'ತಂತ್ರಜ್ಞ:',
+        labelDealer: 'ಡೀಲರ್ / ವರ್ಕ್‌ಶಾಪ್:',
+        labelFault: 'ಗುರುತಿಸಲಾದ ದೋಷ / ಭಾಗ:',
+        promptTitle: 'ಈ ದೋಷವನ್ನು ಸರಿಪಡಿಸಲಾಗಿದೆಯೇ?',
+        promptDesc: 'ವಾಹನವನ್ನು ದುರಸ್ತಿ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಪರೀಕ್ಷಿಸಲಾಗಿದೆ ಎಂದು ದೃಢೀಕರಿಸಲು ಕೆಳಗೆ ಟ್ಯಾಪ್ ಮಾಡಿ.',
+        btnText: '✅ ಹೌದು, ದುರಸ್ತಿ ಮತ್ತು ಪರೀಕ್ಷೆ ಮುಗಿದಿದೆ',
+        btnSub: '1-ಟ್ಯಾಪ್ ತ್ವರಿತ ಕೇಸ್ ಪೂರ್ಣಗೊಳಿಸುವಿಕೆ',
+        btnCancel: 'ಇನ್ನೂ ಪರೀಕ್ಷೆ ಬೇಕು (ತೆರೆದಿಡಿ)',
+        successTitle: 'ಯಶಸ್ವಿಯಾಗಿ ದೃಢೀಕರಿಸಲಾಗಿದೆ!',
+        successDesc: 'ಧನ್ಯವಾದಗಳು. ಕೇಸ್ ಪೂರ್ಣಗೊಂಡಿದೆ ಮತ್ತು ತೃಪ್ತಿಕರವಾಗಿದೆ ಎಂದು ಗುರುತಿಸಲಾಗಿದೆ.',
+        successClose: 'ನೀವು ಈಗ ಈ ವಿಂಡೋವನ್ನು ಮುಚ್ಚಬಹುದು.',
+        alreadyClosedTitle: 'ಈಗಾಗಲೇ ಪೂರ್ಣಗೊಂಡಿದೆ',
+        alreadyClosedDesc: 'ಈ ಕೇಸ್ ಈಗಾಗಲೇ ಪರಿಶೀಲನೆಗೊಂಡು ಮುಚ್ಚಲ್ಪಟ್ಟಿದೆ.'
+      },
+      ml: {
+        subtitle: 'ഫീൽഡ് ഡയഗ്നോസ്റ്റിക് ദ്രുത സ്ഥിരീകരണം',
+        labelCase: 'കേസ് ഐഡി:',
+        labelTech: 'ടെക്നീഷ്യൻ:',
+        labelDealer: 'ഡീലർ / വർക്ക്‌ഷോപ്പ്:',
+        labelFault: 'കണ്ടെത്തിയ തകരാറ് / ഭാഗം:',
+        promptTitle: 'ഈ പ്രശ്നം പരിഹരിച്ചോ?',
+        promptDesc: 'വാഹനം നന്നാക്കി ടെസ്റ്റ് ചെയ്തതായി സ്ഥിരീകരിക്കാൻ താഴെ ടാപ്പ് ചെയ്യുക.',
+        btnText: '✅ അതെ, പരിഹരിച്ചു & ടെസ്റ്റ് ചെയ്തു',
+        btnSub: 'ഒറ്റ ടാപ്പിൽ കേസ് പൂർത്തിയാക്കുക',
+        btnCancel: 'ഇനിയും പരിശോധന ആവശ്യമാണ് (തുറന്നിടുക)',
+        successTitle: 'വിജയകരമായി സ്ഥിരീകരിച്ചു!',
+        successDesc: 'നന്ദി. കേസ് പൂർത്തിയായതായി അടയാളപ്പെടുത്തി. സർവീസ് മാനേജരെ അറിയിച്ചിട്ടുണ്ട്.',
+        successClose: 'ഇനി നിങ്ങൾക്ക് ഈ വിൻഡോ അടയ്ക്കാം.',
+        alreadyClosedTitle: 'ഇതിനകം പൂർത്തിയായി',
+        alreadyClosedDesc: 'ഈ കേസ് ഇതിനകം പരിശോധിച്ചു പൂർത്തിയാക്കിയതാണ്.'
+      },
+      te: {
+        subtitle: 'ఫీల్డ్ డయాగ్నోస్టిక్ త్వరిత ధృవీకరణ',
+        labelCase: 'కేస్ ఐడి:',
+        labelTech: 'టెక్నీషియన్:',
+        labelDealer: 'డీలర్ / వర్క్‌షాప్:',
+        labelFault: 'గుర్తించిన లోపం / భాగం:',
+        promptTitle: 'ఈ సమస్యను సరిచేశారా?',
+        promptDesc: 'వాహనం రిపేర్ చేయబడి టెస్ట్ సంతృప్తికరంగా ఉందని నిర్ధారించడానికి క్రింద నొక్కండి.',
+        btnText: '✅ అవును, సరిచేయబడింది & టెస్ట్ సక్సెస్',
+        btnSub: '1-ట్యాప్‌లో కేస్ వెంటనే పూర్తి చేయండి',
+        btnCancel: 'ఇంకా టెస్టింగ్ అవసరం (ఓపెన్‌లో ఉంచండి)',
+        successTitle: 'విజయవంతంగా ధృవీకరించబడింది!',
+        successDesc: 'ధన్యవాదాలు. డయాగ్నోస్టిక్ కేస్ విజయవంతంగా పూర్తయినట్లు నమోదు చేయబడింది.',
+        successClose: 'మీరు ఇప్పుడు ఈ విండోను మూసివేయవచ్చు.',
+        alreadyClosedTitle: 'ఇప్పటికే పూర్తయింది',
+        alreadyClosedDesc: 'ఈ కేస్ ఇప్పటికే ధృవీకరించబడి మూసివేయబడింది.'
+      }
+    };
+
+    let currentLang = 'en';
+    let currentCaseData = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const caseParam = urlParams.get('c') || urlParams.get('caseId') || urlParams.get('case_number') || urlParams.get('id') || 'RIQ-2026-001';
+
+    function switchLang(lang) {
+      if (!translations[lang]) return;
+      currentLang = lang;
+      document.querySelectorAll('.lang-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(lang === 'ta' ? 'தமிழ்' : lang === 'hi' ? 'हिन्दी' : lang === 'kn' ? 'ಕನ್ನಡ' : lang === 'ml' ? 'മലയാളം' : lang === 'te' ? 'తెలుగు' : 'English'));
+      });
+      const t = translations[lang];
+      document.getElementById('headerSubtitle').textContent = t.subtitle;
+      document.getElementById('labelCase').textContent = t.labelCase;
+      document.getElementById('labelTech').textContent = t.labelTech;
+      document.getElementById('labelDealer').textContent = t.labelDealer;
+      document.getElementById('labelFault').textContent = t.labelFault;
+      document.getElementById('promptTitle').textContent = t.promptTitle;
+      document.getElementById('promptDesc').textContent = t.promptDesc;
+      document.getElementById('btnText').textContent = t.btnText;
+      document.getElementById('btnSub').textContent = t.btnSub;
+      document.getElementById('btnCancel').textContent = t.btnCancel;
+      document.getElementById('successTitle').textContent = t.successTitle;
+      document.getElementById('successCloseHint').textContent = t.successClose;
+    }
+
+    async function loadCaseData() {
+      // 1. Try public API endpoint
+      try {
+        const res = await fetch(`/api/public/case/${encodeURIComponent(caseParam)}/summary`);
+        if (res.ok) {
+          currentCaseData = await res.json();
+          renderData(currentCaseData);
+          return;
+        }
+      } catch (e) {
+        console.warn('Backend API unreachable, using local fallback:', e);
+      }
+
+      // 2. Check query params or mock fallback
+      const v = urlParams.get('v') || 'TN 09 BK 4521';
+      const t = urlParams.get('t') || 'R. Karthik';
+      const f = urlParams.get('f') || 'Air Pressure Switch Assembly (APS) - Replace / Rewire';
+      const d = urlParams.get('d') || 'TVS Mobility Workshop';
+
+      currentCaseData = {
+        case_number: caseParam,
+        vehicle: v,
+        technician: t,
+        dealer: d,
+        suspectedFault: f,
+        closed: false
+      };
+      renderData(currentCaseData);
+    }
+
+    function renderData(data) {
+      document.getElementById('vehicleReg').textContent = data.vehicle || 'Vehicle';
+      document.getElementById('caseNumber').textContent = data.case_number || caseParam;
+      document.getElementById('techName').textContent = data.technician || 'Field Technician';
+      document.getElementById('dealerName').textContent = data.dealer || 'Authorized Service Workshop';
+      document.getElementById('faultDesc').textContent = data.suspectedFault || data.actionRequired || 'Component Inspection & Rectification';
+
+      if (data.closed) {
+        showSuccessView(true);
+      }
+    }
+
+    async function handleConfirm() {
+      const btn = document.getElementById('btnConfirm');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loading-spinner"></div><span style="font-size:12px;margin-top:4px;">Saving Verification...</span>';
+
+      try {
+        await fetch(`/api/public/case/${encodeURIComponent(caseParam)}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ outcome: 'REPAIRED_AND_TESTED_OK' })
+        });
+      } catch (err) {
+        console.warn('API call skipped or offline, updating locally:', err);
+      }
+
+      setTimeout(() => {
+        showSuccessView(false);
+      }, 500);
+    }
+
+    function showSuccessView(alreadyClosed) {
+      document.getElementById('mainCard').style.display = 'none';
+      const successCard = document.getElementById('successCard');
+      successCard.style.display = 'flex';
+
+      document.getElementById('successCaseNo').textContent = currentCaseData?.case_number || caseParam;
+      document.getElementById('successVehicleNo').textContent = currentCaseData?.vehicle || '';
+
+      const t = translations[currentLang];
+      if (alreadyClosed) {
+        document.getElementById('successTitle').textContent = t.alreadyClosedTitle;
+        document.getElementById('successDesc').innerHTML = t.alreadyClosedDesc;
+      }
+    }
+
+    function handleKeepOpen() {
+      alert('Diagnostic case remains IN PROGRESS. You can return to test whenever ready.');
+      window.close();
+    }
+
+    // Auto-detect browser language or start with English
+    const navLang = (navigator.language || '').substring(0, 2).toLowerCase();
+    if (translations[navLang]) {
+      switchLang(navLang);
+    } else {
+      switchLang('en');
+    }
+
+    loadCaseData();
+  </script>
+</body>
+</html>
+

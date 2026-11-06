@@ -329,6 +329,56 @@ export const api = {
     });
   },
 
+  async closeCaseByAdmin(
+    id: string,
+    resolution: {
+      outcome: string;
+      suspectedPart: string;
+      remarks: string;
+      closedBy?: string;
+    }
+  ) {
+    if (isMockMode()) {
+      const item = mockCases.find((c) => c.id === id);
+      if (item && item.payload) {
+        item.payload['Diagnostic Status'] = 'CLOSED_BY_ADMIN';
+        item.payload['Lifecycle Status'] = 'CLOSED';
+        item.payload['Session State'] = 'CLOSED_BY_ADMIN';
+        item.payload['Admin Resolution'] = {
+          ...resolution,
+          closedAt: new Date().toISOString(),
+          closedBy: resolution.closedBy || 'Admin',
+        };
+      }
+      return { success: true };
+    }
+    return requestApi(`/api/admin/diagnostics/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ admin_resolution: resolution }),
+    });
+  },
+
+  async quickConfirmCase(id: string) {
+    if (isMockMode()) {
+      const item = mockCases.find((c) => c.id === id);
+      if (item && item.payload) {
+        item.payload['Diagnostic Status'] = 'WORKING SATISFACTORY';
+        item.payload['Lifecycle Status'] = 'CLOSED';
+        item.payload['Session State'] = 'COMPLETED';
+        item.payload['Technician Confirmation'] = {
+          outcome: 'REPAIRED_AND_TESTED_OK',
+          confirmedAt: new Date().toISOString(),
+          channel: 'WhatsApp 1-Tap',
+        };
+      }
+      return { success: true };
+    }
+    return requestApi(`/api/public/case/${encodeURIComponent(id)}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome: 'REPAIRED_AND_TESTED_OK' }),
+    });
+  },
+
   async deleteCases(ids: string[]) {
     if (isMockMode()) {
       const set = new Set(ids);

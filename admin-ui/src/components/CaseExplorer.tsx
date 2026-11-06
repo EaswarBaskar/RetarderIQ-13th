@@ -14,6 +14,10 @@ import {
   ExternalLink,
   ChevronDown,
   RotateCcw,
+  MessageSquare,
+  PhoneCall,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface CaseExplorerProps {
@@ -40,6 +44,31 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [whatsAppNotice, setWhatsAppNotice] = useState('');
+
+  const handleWhatsApp = (item: DiagnosticCase) => {
+    const p = item.payload || {};
+    const fse = p['FSE Name'] || 'Electrician';
+    const vehicle = p['Vehicle Registration No.'] || p['Chassis No.'] || 'vehicle';
+    const cId = item.case_number || p['Diagnostic Case ID'] || item.id;
+    const confirmUrl = `${window.location.origin}/confirm.html?c=${encodeURIComponent(cId)}`;
+    const message = `Hi ${fse}, RetarderIQ showed a fault on vehicle ${vehicle}. Did you rectify the issue? Tap here to confirm in 1 second: ${confirmUrl}`;
+
+    const rawPhone = String(p['Technician Phone'] || '').replace(/[^0-9]/g, '');
+    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+    const waUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(confirmUrl);
+      setWhatsAppNotice(`WhatsApp link copied for ${vehicle} (${fse})!`);
+      setTimeout(() => setWhatsAppNotice(''), 4500);
+    }
+  };
 
   // Local filter states
   const [search, setSearch] = useState('');
@@ -141,6 +170,13 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
     const s = getSessionStatus(p);
     if (s === 'FAULT FOUND') return <Badge variant="destructive">Fault Found</Badge>;
     if (s === 'WORKING SATISFACTORY') return <Badge variant="success">Satisfactory</Badge>;
+    if (s === 'CLOSED_BY_ADMIN' || s === 'CLOSED BY ADMIN') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-900 border border-purple-300">
+          🟣 Closed by Admin
+        </span>
+      );
+    }
     if (s === 'INCOMPLETE') return <Badge variant="warning">Incomplete</Badge>;
     return <Badge variant="secondary">{s}</Badge>;
   };
@@ -187,6 +223,18 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
       </CardHeader>
 
       <CardContent className="pt-4">
+        {whatsAppNotice && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs px-3.5 py-2.5 rounded-lg flex items-center justify-between animate-in fade-in">
+            <span className="font-semibold flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              {whatsAppNotice}
+            </span>
+            <button onClick={() => setWhatsAppNotice('')} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-3">
           <div className="relative flex-1">
@@ -231,6 +279,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                 <option value="">All statuses</option>
                 <option value="FAULT FOUND">FAULT FOUND</option>
                 <option value="WORKING SATISFACTORY">WORKING SATISFACTORY</option>
+                <option value="CLOSED_BY_ADMIN">🟣 CLOSED BY ADMIN (VERIFIED)</option>
                 <option value="INCOMPLETE">INCOMPLETE</option>
                 <option value="REFERRED_FOR_REPLACEMENT">REFERRED FOR REPLACEMENT</option>
                 <option value="VERIFICATION_PENDING">VERIFICATION PENDING</option>
@@ -451,15 +500,43 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => onViewCase(item.id)}
-                          className="h-7 px-2.5 text-[11px] font-semibold"
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1 text-[#0b5daa]" />
-                          View
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {!['CLOSED_BY_ADMIN', 'CLOSED BY ADMIN', 'WORKING SATISFACTORY'].includes(getSessionStatus(p)) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleWhatsApp(item);
+                                }}
+                                title="Send WhatsApp 1-Tap Quick-Close Link"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer shadow-xs"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewCase(item.id);
+                                }}
+                                title="Telephonic Verification & Admin Closure"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer shadow-xs"
+                              >
+                                <PhoneCall className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => onViewCase(item.id)}
+                            className="h-7 px-2.5 text-[11px] font-semibold"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1 text-[#0b5daa]" />
+                            View
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
