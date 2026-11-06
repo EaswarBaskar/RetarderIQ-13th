@@ -546,7 +546,11 @@
       document.getElementById('caseNumber').textContent = data.case_number || caseParam;
       document.getElementById('techName').textContent = data.technician || 'Field Technician';
       document.getElementById('dealerName').textContent = data.dealer || 'Authorized Service Workshop';
-      document.getElementById('faultDesc').textContent = data.suspectedFault || data.actionRequired || 'Component Inspection & Rectification';
+      const rawFault = String(data.suspectedFault || data.actionRequired || 'Component Inspection & Rectification')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]*>/g, '')
+        .trim();
+      document.getElementById('faultDesc').textContent = rawFault;
 
       if (data.closed) {
         showSuccessView(true);

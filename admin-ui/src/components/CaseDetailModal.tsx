@@ -188,11 +188,23 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
     );
   };
 
+  const renderFormattedHtml = (content: any) => {
+    if (content == null || content === '') return null;
+    let str = String(content);
+    if (!/<[a-z][\s\S]*>/i.test(str)) {
+      str = str
+        .replace(/\n/g, '<br>')
+        .replace(/(Root Cause:)/gi, '<strong>$1</strong>')
+        .replace(/(Corrective Action:)/gi, '<br><strong>$1</strong>');
+    }
+    return <span dangerouslySetInnerHTML={{ __html: str }} />;
+  };
+
   const renderField = (label: string, value: any) => (
     <div className="bg-white p-2.5 rounded-lg border border-slate-200">
       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</div>
       <div className="text-xs font-semibold text-slate-800 mt-0.5 break-words">
-        {value || '—'}
+        {value ? renderFormattedHtml(value) : '—'}
       </div>
     </div>
   );
@@ -414,8 +426,8 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                         className="p-3 rounded-lg border-l-4 border-l-rose-500 bg-rose-50/50 border border-rose-200/60 text-xs space-y-1.5"
                       >
                         {f.title && <div className="font-bold text-slate-900">{f.title}</div>}
-                        <div className="text-rose-950 whitespace-pre-line leading-relaxed font-medium">
-                          {f.action}
+                        <div className="text-rose-950 leading-relaxed font-medium">
+                          {renderFormattedHtml(f.action)}
                         </div>
                         {(f.partNo || p['Recommended Part No.']) && (
                           <div className="mt-2 text-xs font-semibold text-amber-900 bg-amber-100/70 p-2 rounded border border-amber-200">
@@ -456,7 +468,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                   <strong className="block text-amber-900 mb-1">
                     Customer voice / field complaint:
                   </strong>
-                  {p['Customer Voice / Field Complaints reported']}
+                  {renderFormattedHtml(p['Customer Voice / Field Complaints reported'])}
                 </div>
               </div>
             )}
@@ -539,7 +551,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                               {String(idx + 1).padStart(2, '0')}
                             </td>
                             <td className="px-3 py-2 text-slate-800 font-medium">
-                              {step.question}
+                              {renderFormattedHtml(step.question)}
                             </td>
                             <td
                               className={`px-3 py-2 font-bold ${
@@ -550,7 +562,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                                   : 'text-slate-600'
                               }`}
                             >
-                              {step.response}
+                              {renderFormattedHtml(step.response)}
                             </td>
                           </tr>
                         );

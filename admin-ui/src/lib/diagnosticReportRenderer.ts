@@ -89,7 +89,7 @@ export function generateDiagnosticReportHtml(item: DiagnosticCase): string {
   const field = (label: string, value: any) => `
     <div class="detail-item">
       <small>${escapeHtml(label)}</small>
-      <strong>${escapeHtml(value || '—')}</strong>
+      <strong>${escapeHtml(cleanText(value) || '—')}</strong>
     </div>
   `;
 
@@ -100,7 +100,7 @@ export function generateDiagnosticReportHtml(item: DiagnosticCase): string {
   } else {
     faultDetailsHtml = faults
       .map((entry) => {
-        const title = entry.title ? `<strong>${escapeHtml(entry.title)}</strong><br>` : '';
+        const title = entry.title ? `<strong>${escapeHtml(cleanText(entry.title))}</strong><br>` : '';
         const actionHtml = escapeHtml(cleanText(entry.action || entry.title || '-'))
           .replace(/(Root Cause:)/gi, '<strong style="color:#b91c1c;">$1</strong>')
           .replace(/(Corrective Action:)/gi, '<strong style="color:#1e3a8a;">$1</strong>');
@@ -156,7 +156,7 @@ export function generateDiagnosticReportHtml(item: DiagnosticCase): string {
         return `
           <tr>
             <td style="text-align:center; font-weight:bold; color:#64748b;">${String(idx + 1).padStart(2, '0')}</td>
-            <td>${escapeHtml(step.question)}</td>
+            <td>${escapeHtml(cleanText(step.question))}</td>
             <td class="${respClass}">${escapeHtml(resp)}</td>
           </tr>
         `;
@@ -528,8 +528,10 @@ export function generateDiagnosticReportHtml(item: DiagnosticCase): string {
         <h3>Technician Finding</h3>
         <div class="detail-callout">
           <strong>Customer voice / field complaint:</strong> ${escapeHtml(
-            p['Customer Voice / Field Complaints reported']
-          )}
+            cleanText(p['Customer Voice / Field Complaints reported'])
+          )
+            .replace(/(Root Cause:)/gi, '<strong style="color:#b91c1c;">$1</strong>')
+            .replace(/(Corrective Action:)/gi, '<br><strong style="color:#1e3a8a;">$1</strong>')}
         </div>
       </div>
     `

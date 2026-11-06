@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from './ui/Button';
 import { Download, RefreshCw, LogOut, Calendar, Sparkles } from 'lucide-react';
-import { isMockMode } from '../services/api';
+import { isMockMode, setMockMode, setStoredToken } from '../services/api';
 
 interface HeaderProps {
   onRefresh: () => void;
@@ -49,10 +49,19 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{sseConnected ? 'Live sync' : 'Sync standby'}</span>
             </div>
             {isMockMode() && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-[#0b5daa] border border-blue-200 px-2 py-0.5 text-[11px] font-bold">
-                <Sparkles className="h-3 w-3 text-[#0b5daa]" />
-                Demo Mode
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setMockMode(false);
+                  setStoredToken(null);
+                  window.location.reload();
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold transition-colors cursor-pointer"
+                title="Currently in Demo Mode. Click to exit and view live database reports."
+              >
+                <Sparkles className="h-3 w-3 text-amber-600" />
+                Demo Mode (Click to Exit)
+              </button>
             )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">

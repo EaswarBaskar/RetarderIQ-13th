@@ -168,11 +168,7 @@ export const api = {
       return { token, user: { role: 'admin', email: email || 'admin@example.com' } };
     }
 
-    if (isMockMode()) {
-      const token = 'mock-admin-token-' + Date.now();
-      setStoredToken(token);
-      return { token, user: { role: 'admin', email } };
-    }
+    setMockMode(false);
 
     const apiBase = getApiBaseUrl();
     const fullUrl = `${apiBase}/api/auth/login`;
@@ -215,10 +211,7 @@ export const api = {
   },
 
   async logout() {
-    if (isMockMode()) {
-      setStoredToken(null);
-      return;
-    }
+    setMockMode(false);
     const token = getStoredToken();
     const apiBase = getApiBaseUrl();
     if (token) {

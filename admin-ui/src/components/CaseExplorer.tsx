@@ -584,7 +584,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                   const vehicle = (rawReg && rawReg !== '-') ? rawReg : (rawChassis && rawChassis !== '-' ? rawChassis : '-');
                   const lang = p['Diagnostic Language Name'] || p['Diagnostic Language'] || 'English';
                   const dealer = p['Dealer / Location'] || '-';
-                  const part = p['Recommended Part No.'] || p['Suspected Product'] || '-';
+                  const part = String(p['Recommended Part No.'] || p['Suspected Product'] || '-').replace(/<[^>]*>/g, '').trim();
                   const replacement = p['Replacement Status'] || 'NOT_REQUIRED';
 
                   return (
