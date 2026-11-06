@@ -22,15 +22,53 @@ export const stateRegionMap: Record<string, string> = {
   Jharkhand: 'East',
   Odisha: 'East',
   Assam: 'East',
-  'Madhya Pradesh': 'Central',
-  Chhattisgarh: 'Central',
+  'Madhya Pradesh': 'West',
+  Chhattisgarh: 'East',
 };
 
 export function getRegion(payload: Record<string, any>): string {
   const explicit = String(payload?.Region || '').trim();
-  if (explicit) return explicit;
+  if (explicit && explicit.toLowerCase() !== 'central') return explicit;
   const state = String(payload?.State || '').trim();
-  return stateRegionMap[state] || 'Other';
+  const found = stateRegionMap[state];
+  if (found && found.toLowerCase() !== 'central') return found;
+  return 'South';
+}
+
+/**
+ * Checks whether a diagnostic report contains photographic / step evidence
+ */
+export function caseHasPhoto(payload: Record<string, any>): boolean {
+  if (!payload) return false;
+  if (payload.has_photo === true) return true;
+
+  // 1. Check Step Evidence object
+  const stepEvidence = payload['Step Evidence'];
+  if (stepEvidence && typeof stepEvidence === 'object' && Object.keys(stepEvidence).length > 0) {
+    const hasValidPhoto = Object.values(stepEvidence).some((item: any) => {
+      if (!item) return false;
+      if (typeof item === 'string') return item.length > 20;
+      if (typeof item === 'object') return Boolean(item.dataUrl || item.url || item.src);
+      return false;
+    });
+    if (hasValidPhoto) return true;
+  }
+
+  // 2. Check Diagnostic Step History for attached evidence
+  const history = payload['Diagnostic Step History'];
+  if (Array.isArray(history)) {
+    const hasHistoryPhoto = history.some((step: any) => {
+      return Boolean(step?.evidence?.dataUrl || step?.evidence?.url || step?.photo);
+    });
+    if (hasHistoryPhoto) return true;
+  }
+
+  // 3. Check direct photo/images fields
+  if (Array.isArray(payload.photos) && payload.photos.length > 0) return true;
+  if (Array.isArray(payload.images) && payload.images.length > 0) return true;
+  if (payload['Photo'] || payload['photo_url'] || payload['evidence_photo']) return true;
+
+  return false;
 }
 
 export function getSessionStatus(payload: Record<string, any>): string {

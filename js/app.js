@@ -262,23 +262,8 @@ function hide(el) {
 /* =================== Exit Intent Prompt (Did you find the issue?) =================== */
 (function () {
   window.hasReachedFaultStep = function () {
-    if (window._hasReachedFaultStep) return true;
-    if (window._pendingTerminal && window._pendingTerminal.outcome === 'FAULT FOUND') return true;
-
-    const stepResult = document.getElementById('stepResult');
-    if (stepResult && stepResult.style.display !== 'none' && (stepResult.classList.contains('step-fail') || stepResult.classList.contains('step-action'))) {
-      return true;
-    }
-
-    if (window.SELECTED_EMISSION === 'TML') {
-      const tmlBox = document.getElementById('tmlActionBox');
-      if (tmlBox && tmlBox.style.display !== 'none' && (tmlBox.querySelector('.step-fail') || tmlBox.classList.contains('step-fail'))) {
-        return true;
-      }
-      if (window._tmlHasFault) return true;
-    }
-
-    return false;
+    // In any active diagnostic step, electricians may have identified the issue on the vehicle.
+    return true;
   };
 
   window.getIdentifiedFaultReason = function () {
@@ -292,10 +277,19 @@ function hide(el) {
     if (tmlActionText && tmlActionText.textContent.trim()) {
       return tmlActionText.textContent.trim();
     }
+    // Check active step title in DOM
+    const activeStepHeader = document.querySelector('#standardModeTestSection h2, #guidedFlowCard h2, #guidedFlowCard .title');
+    if (activeStepHeader && activeStepHeader.textContent.trim()) {
+      return `Issue identified during: ${activeStepHeader.textContent.trim()}`;
+    }
+    if (typeof getCurrentStep === 'function') {
+      const step = getCurrentStep();
+      if (step?.q) return `Issue identified during: ${step.q}`;
+    }
     return 'Fault identified during diagnostic checks';
   };
 
-  window.showExitIntentPrompt = function () {
+  window.showExitIntentPrompt = function (onDiscardCallback) {
     if (document.getElementById('riqExitIntentModal')) return;
 
     const faultReason = window.getIdentifiedFaultReason();
@@ -352,6 +346,11 @@ function hide(el) {
             <span>❌</span>
             <span>${continueBtnText}</span>
           </button>
+          ${onDiscardCallback ? `
+            <button id="exitIntentDiscardBtn" type="button" style="background:transparent; border:none; color:#94a3b8; font-size:11.5px; text-decoration:underline; cursor:pointer; padding:4px; margin-top:2px;">
+              Leave without saving report
+            </button>
+          ` : ''}
         </div>
       </div>
     `;
@@ -360,6 +359,7 @@ function hide(el) {
 
     const saveBtn = document.getElementById('exitIntentSaveBtn');
     const continueBtn = document.getElementById('exitIntentContinueBtn');
+    const discardBtn = document.getElementById('exitIntentDiscardBtn');
 
     if (saveBtn) {
       saveBtn.onclick = () => {
@@ -373,6 +373,15 @@ function hide(el) {
     if (continueBtn) {
       continueBtn.onclick = () => {
         window.closeExitIntentPrompt();
+      };
+    }
+
+    if (discardBtn) {
+      discardBtn.onclick = () => {
+        window.closeExitIntentPrompt();
+        if (typeof onDiscardCallback === 'function') {
+          onDiscardCallback();
+        }
       };
     }
   };

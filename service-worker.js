@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retarder-iq-shell-v122';
+const CACHE_NAME = 'retarder-iq-shell-v123';
 const SHELL = [
   '/',
   '/index.html',

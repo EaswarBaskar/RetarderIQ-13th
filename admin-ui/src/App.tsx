@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api, getStoredToken, DiagnosticCase, DiagnosticSummary, AdminUser, Pagination } from './services/api';
 import { LoginView } from './components/LoginView';
 import { Header } from './components/Header';
@@ -8,6 +8,7 @@ import { RecordedPlacesGlobe } from './components/RecordedPlacesGlobe';
 import { CaseExplorer } from './components/CaseExplorer';
 import { CaseDetailModal } from './components/CaseDetailModal';
 import { TechnicianManagement } from './components/TechnicianManagement';
+import { getSessionStatus, getRegion, getManufacturer } from './lib/diagnosticUtils';
 
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getStoredToken());
@@ -37,14 +38,21 @@ export const App: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState<DiagnosticCase | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // Track latest active filters & pagination in refs to avoid stale closures in SSE and background timers
+  const activeFiltersRef = useRef(activeFilters);
+  activeFiltersRef.current = activeFilters;
+
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+
   // Load paginated cases
   const loadCases = useCallback(
-    async (page = 1, currentFilters = activeFilters) => {
+    async (page = 1, currentFilters = activeFiltersRef.current) => {
       setLoading(true);
       try {
         const res = await api.getCases({
           page,
-          pageSize: pagination.pageSize,
+          pageSize: paginationRef.current.pageSize,
           ...currentFilters,
         });
         setCases(res.cases || []);
@@ -60,7 +68,7 @@ export const App: React.FC = () => {
         setLoading(false);
       }
     },
-    [activeFilters, pagination.pageSize]
+    []
   );
 
   // Load analytics & summary
@@ -87,10 +95,14 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Full Refresh
+  // Full Refresh (preserves active filters)
   const handleRefreshAll = async () => {
     setRefreshing(true);
-    await Promise.all([loadCases(pagination.page), loadAnalytics(), loadUsers()]);
+    await Promise.all([
+      loadCases(paginationRef.current.page, activeFiltersRef.current),
+      loadAnalytics(),
+      loadUsers(),
+    ]);
     setRefreshing(false);
   };
 
@@ -101,10 +113,16 @@ export const App: React.FC = () => {
     handleRefreshAll();
 
     // Connect Server-Sent Events for real-time live cases
-    const disconnect = api.connectEvents(() => {
+    const disconnect = api.connectEvents((event: any) => {
       setSseConnected(true);
-      // Auto refresh table & summary when new diagnostic comes in
-      loadCases(pagination.page);
+
+      // Keepalive / ping: connection health check only - NEVER clear user filters or reload data!
+      if (!event || event.type === 'keepalive' || event.type === 'ping') {
+        return;
+      }
+
+      // Live mutation event: reload data preserving current active filters!
+      loadCases(paginationRef.current.page, activeFiltersRef.current);
       loadAnalytics();
     });
 
@@ -123,11 +141,32 @@ export const App: React.FC = () => {
 
   const handleFilterChange = (newFilters: Record<string, string>) => {
     setActiveFilters(newFilters);
+    if (newFilters.dateFrom !== undefined && newFilters.dateFrom !== dateFrom) {
+      setDateFrom(newFilters.dateFrom);
+    }
+    if (newFilters.dateTo !== undefined && newFilters.dateTo !== dateTo) {
+      setDateTo(newFilters.dateTo);
+    }
     loadCases(1, newFilters);
   };
 
+  const handleApplyDateFilter = useCallback(async () => {
+    const nextFilters = { ...activeFiltersRef.current };
+    if (dateFrom) nextFilters.dateFrom = dateFrom;
+    else delete nextFilters.dateFrom;
+
+    if (dateTo) nextFilters.dateTo = dateTo;
+    else delete nextFilters.dateTo;
+
+    setActiveFilters(nextFilters);
+    await Promise.all([
+      loadCases(1, nextFilters),
+      loadAnalytics(),
+    ]);
+  }, [dateFrom, dateTo, loadCases, loadAnalytics]);
+
   const handlePageChange = (newPage: number) => {
-    loadCases(newPage);
+    loadCases(newPage, activeFiltersRef.current);
   };
 
   const handleViewCase = async (id: string) => {
@@ -146,51 +185,99 @@ export const App: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    if (allCases.length === 0) {
+    const exportData = allCases.length > 0 ? allCases : cases;
+    if (exportData.length === 0) {
       alert('No records available to export.');
       return;
     }
 
-    const columns = [
-      'Diagnostic Case ID',
-      'Diagnostic Status',
-      'Diagnostic Language Name',
-      'Admin Report Language',
+    const headers = [
+      'Case ID',
+      'Date',
+      'Time',
+      'Status',
       'FSE Name',
       'Technician Phone',
       'Vehicle Manufacturer',
       'Model',
-      'Travels Name',
       'Vehicle Registration No.',
       'Chassis No.',
-      'Odometer Km',
-      'Kms & Date of Sale',
       'Dealer / Location',
       'City',
       'State',
       'Region',
       'Suspected Product',
       'Recommended Part No.',
+      'Admin Resolution Status',
+      'Admin Resolution Remarks',
       'Complaint Attended on',
+      'Created At',
+      'Travels Name',
+      'Odometer Km',
+      'Diagnostic Language Name',
       'Diagnostic Feedback',
     ];
 
     const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
 
     const csvRows = [
-      columns.join(','),
-      ...allCases.map((item) => {
+      headers.join(','),
+      ...exportData.map((item) => {
         const p = item.payload || {};
-        return columns
-          .map((col) => {
-            const val =
-              p[col] ?? (col === 'Diagnostic Case ID' ? item.case_number || item.id : '');
-            if (col === 'Diagnostic Feedback' && typeof val === 'object' && val !== null) {
-              return escapeCsv(val.clarity || '');
+
+        // Always resolve Date and Time so no case has a blank date
+        let dateVal = '';
+        let timeVal = '';
+        if (p['Complaint Attended on']) {
+          dateVal = p['Complaint Attended on'];
+        }
+        if (item.created_at) {
+          const d = new Date(item.created_at);
+          if (!isNaN(d.getTime())) {
+            if (!dateVal) {
+              dateVal = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
             }
-            return escapeCsv(val);
-          })
-          .join(',');
+            timeVal = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          }
+        }
+
+        const caseId = item.case_number || p['Diagnostic Case ID'] || item.id;
+        const status = getSessionStatus(p);
+        const mfg = getManufacturer(p);
+        const region = p.Region || getRegion(p);
+        const adminRes = p['Admin Resolution'] || {};
+        const feedback = typeof p['Diagnostic Feedback'] === 'object' && p['Diagnostic Feedback'] !== null
+          ? (p['Diagnostic Feedback'].clarity || p['Diagnostic Feedback'].rating || '')
+          : (p['Diagnostic Feedback'] || '');
+
+        const rowMap: Record<string, any> = {
+          'Case ID': caseId,
+          'Date': dateVal,
+          'Time': timeVal,
+          'Status': status,
+          'FSE Name': p['FSE Name'] || p['Technician Name'] || '',
+          'Technician Phone': p['Technician Phone'] || p['phone'] || '',
+          'Vehicle Manufacturer': mfg,
+          'Model': p.Model || '',
+          'Vehicle Registration No.': p['Vehicle Registration No.'] || p['Vehicle Registration'] || '',
+          'Chassis No.': p['Chassis No.'] || p['Chassis'] || '',
+          'Dealer / Location': p['Dealer / Location'] || p['Dealer'] || '',
+          'City': p.City || '',
+          'State': p.State || '',
+          'Region': region,
+          'Suspected Product': p['Suspected Product'] || '',
+          'Recommended Part No.': p['Recommended Part No.'] || '',
+          'Admin Resolution Status': adminRes.outcome || '',
+          'Admin Resolution Remarks': adminRes.remarks || '',
+          'Complaint Attended on': p['Complaint Attended on'] || dateVal,
+          'Created At': item.created_at || '',
+          'Travels Name': p['Travels Name'] || '',
+          'Odometer Km': p['Odometer Km'] || p['Kms & Date of Sale'] || '',
+          'Diagnostic Language Name': p['Diagnostic Language Name'] || p['Diagnostic Language'] || 'English',
+          'Diagnostic Feedback': feedback,
+        };
+
+        return headers.map((h) => escapeCsv(rowMap[h])).join(',');
       }),
     ];
 
@@ -225,40 +312,68 @@ export const App: React.FC = () => {
           setDateTo={setDateTo}
           granularity={granularity}
           setGranularity={setGranularity}
-          onApplyDateFilter={loadAnalytics}
+          onApplyDateFilter={handleApplyDateFilter}
         />
 
         {/* Top KPIs */}
         <KpiCards
           summary={summary}
           cases={allCases.length > 0 ? allCases : cases}
+          activeFilters={activeFilters}
+          onFilterChange={handleFilterChange}
           onFilterIncomplete={() => {
             handleFilterChange({ ...activeFilters, status: 'INCOMPLETE' });
           }}
         />
 
         {/* Charts & Visual Analytics */}
-        <ChartsSection cases={allCases} />
+        <ChartsSection
+          cases={allCases.length > 0 ? allCases : cases}
+          activeFilters={activeFilters}
+          onFilterChange={handleFilterChange}
+          onViewCase={handleViewCase}
+        />
 
         {/* 3D Globe of Field Diagnostic Records & Hubs */}
         <RecordedPlacesGlobe
-          cases={allCases}
+          cases={allCases.length > 0 ? allCases : cases}
           users={users}
-          onSelectPlace={(cityName) => {
-            handleFilterChange({ ...activeFilters, search: cityName });
+          onSelectPlace={(placeInfo) => {
+            if (typeof placeInfo === 'object' && placeInfo !== null) {
+              const newFilter: Record<string, string> = { ...activeFilters };
+              if (placeInfo.search !== undefined) {
+                newFilter.search = placeInfo.search;
+              }
+              if (placeInfo.region) {
+                newFilter.region = placeInfo.region;
+              }
+              handleFilterChange(newFilter);
+            } else if (typeof placeInfo === 'string') {
+              handleFilterChange({ ...activeFilters, search: placeInfo });
+            }
+            // Auto-scroll down smoothly to the Case Explorer data table so user immediately sees the records
+            setTimeout(() => {
+              const el = document.getElementById('case-explorer');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 100);
           }}
         />
 
         {/* Case Explorer Data Table */}
         <CaseExplorer
+          id="case-explorer"
           cases={cases}
           pagination={pagination}
           loading={loading}
+          activeFilters={activeFilters}
           onPageChange={handlePageChange}
           onFilterChange={handleFilterChange}
           onViewCase={handleViewCase}
           onDeleteCases={handleDeleteCases}
           statusFilterValue={activeFilters.status || ''}
+          onExportCsv={handleExportCsv}
         />
 
         {/* Technician Management Section */}

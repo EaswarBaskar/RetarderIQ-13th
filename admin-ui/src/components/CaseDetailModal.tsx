@@ -8,7 +8,19 @@ import {
   normalizeFaults,
   normalizeHistory,
 } from '../lib/diagnosticReportRenderer';
-import { Printer, CheckCircle, AlertTriangle, HelpCircle, PhoneCall, MessageSquare, Copy, Check, ExternalLink, ShieldCheck } from 'lucide-react';
+import {
+  Printer,
+  CheckCircle,
+  AlertTriangle,
+  HelpCircle,
+  PhoneCall,
+  MessageSquare,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 import { getSuggestedResolutionPart } from '../lib/diagnosticUtils';
 
 interface CaseDetailModalProps {
@@ -120,7 +132,9 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
 
   const handleSendWhatsApp = () => {
     const fse = p['FSE Name'] || 'Electrician';
-    const vehicle = p['Vehicle Registration No.'] || p['Chassis No.'] || 'vehicle';
+    const rawReg = String(p['Vehicle Registration No.'] || '').trim();
+    const rawChassis = String(p['Chassis No.'] || '').trim();
+    const vehicle = (rawReg && rawReg !== '-') ? rawReg : (rawChassis && rawChassis !== '-' ? rawChassis : 'vehicle');
     const cId = caseItem.case_number || p['Diagnostic Case ID'] || caseItem.id;
     const confirmUrl = `${window.location.origin}/confirm.html?c=${encodeURIComponent(cId)}`;
     const message = `Hi ${fse}, RetarderIQ showed a fault on vehicle ${vehicle}. Did you rectify the issue? Tap here to confirm in 1 second: ${confirmUrl}`;
@@ -207,7 +221,6 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 <option value="East">East (E)</option>
                 <option value="West">West (W)</option>
                 <option value="South">South (S)</option>
-                <option value="Central">Central</option>
                 <option value="Other">Other</option>
               </select>
               <Button
@@ -656,7 +669,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
               <div>
                 <div className="text-[10px] font-bold text-purple-700 uppercase">Vehicle / Reg No.</div>
                 <div className="font-bold text-slate-900 font-mono mt-0.5">
-                  {p['Vehicle Registration No.'] || p['Chassis No.'] || 'Vehicle'}
+                  {(p['Vehicle Registration No.'] && p['Vehicle Registration No.'] !== '-') ? p['Vehicle Registration No.'] : (p['Chassis No.'] || 'Vehicle')}
                 </div>
                 <div className="text-[11px] text-slate-600 truncate mt-0.5">
                   {p['Dealer / Location'] || p.City || 'Depot Workshop'}

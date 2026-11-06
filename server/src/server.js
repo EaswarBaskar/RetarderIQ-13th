@@ -800,6 +800,7 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
   const kmRange = String(req.query.kmRange || '').trim();
   const dateFrom = String(req.query.dateFrom || '').trim();
   const dateTo = String(req.query.dateTo || '').trim();
+  const hasPhoto = String(req.query.hasPhoto || req.query.photo || '').trim().toLowerCase();
   const where = [];
   const values = [];
   const add = (sql, value) => { values.push(value); where.push(sql.replace('?', `$${values.length}`)); };
@@ -823,13 +824,19 @@ app.get('/api/diagnostics', requireAuth, requireRole('admin'), asyncHandler(asyn
   if (kmRange === '0-50000') where.push(`${kmValue} BETWEEN 0 AND 50000`);
   if (kmRange === '50001-100000') where.push(`${kmValue} BETWEEN 50001 AND 100000`);
   if (kmRange === '100001-plus') where.push(`${kmValue} >= 100001`);
+  const photoExpr = `((payload ? 'Step Evidence' AND payload->'Step Evidence' IS NOT NULL AND payload->'Step Evidence' <> '{}'::jsonb AND payload->'Step Evidence' <> 'null'::jsonb) OR (payload ? 'photos' AND jsonb_array_length(CASE WHEN jsonb_typeof(payload->'photos') = 'array' THEN payload->'photos' ELSE '[]'::jsonb END) > 0) OR (payload ? 'images' AND jsonb_array_length(CASE WHEN jsonb_typeof(payload->'images') = 'array' THEN payload->'images' ELSE '[]'::jsonb END) > 0) OR (payload ? 'Diagnostic Step History' AND payload->'Diagnostic Step History'::text ILIKE '%data:image%'))`;
+  if (hasPhoto === 'has_photo' || hasPhoto === 'true' || hasPhoto === 'yes') {
+    where.push(photoExpr);
+  } else if (hasPhoto === 'no_photo' || hasPhoto === 'false' || hasPhoto === 'no') {
+    where.push(`NOT ${photoExpr}`);
+  }
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM diagnostic_cases ${clause}`, values);
   const offset = (page - 1) * pageSize;
   const listValues = [...values, pageSize, offset];
   const result = await pool.query(
     `SELECT id, case_number, created_at, forwarded_at, forward_status, forward_error, forward_attempts,
-            (payload - ARRAY['GPS Latitude', 'GPS Longitude', 'GPS Address', 'Step Evidence']) || jsonb_build_object('Diagnostic Case ID', case_number) AS payload
+            (payload - ARRAY['GPS Latitude', 'GPS Longitude', 'GPS Address', 'Step Evidence']) || jsonb_build_object('Diagnostic Case ID', case_number, 'has_photo', ${photoExpr}) AS payload
      FROM diagnostic_cases ${clause}
      ORDER BY created_at DESC
      LIMIT ${listValues.length - 1} OFFSET ${listValues.length}`,

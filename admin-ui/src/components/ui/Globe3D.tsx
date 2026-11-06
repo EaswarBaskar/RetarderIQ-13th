@@ -1,7 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { cn } from '../../lib/utils';
-import { Plus, Minus, RotateCcw, Play, Pause, Compass } from 'lucide-react';
+import { Plus, Minus, RotateCcw, Play, Pause, Compass, MapPin } from 'lucide-react';
+
+export function getRegionColor(region?: string): string {
+  switch (region?.toLowerCase()) {
+    case 'north':
+      return '#3b82f6'; // Blue
+    case 'east':
+      return '#f59e0b'; // Amber
+    case 'west':
+      return '#a855f7'; // Purple
+    case 'south':
+      return '#06b6d4'; // Cyan
+    default:
+      return '#10b981'; // Emerald
+  }
+}
+
+export function getRegionColorHex(region?: string): number {
+  switch (region?.toLowerCase()) {
+    case 'north':
+      return 0x3b82f6;
+    case 'east':
+      return 0xf59e0b;
+    case 'west':
+      return 0xa855f7;
+    case 'south':
+      return 0x06b6d4;
+    default:
+      return 0x10b981;
+  }
+}
 
 export interface GlobeMarker {
   lat: number;
@@ -137,11 +167,17 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const zoomOutRef = useRef<() => void>(() => {});
   const resetViewRef = useRef<() => void>(() => {});
   const setTargetRotationRef = useRef<(rotX: number, rotY: number) => void>(() => {});
+  const updatePinsRef = useRef<() => void>(() => {});
 
   const configRef = useRef(config);
   configRef.current = config;
   const markersRef = useRef(markers);
   markersRef.current = markers;
+
+  // Re-sync Three.js surface pins whenever markers change
+  useEffect(() => {
+    updatePinsRef.current();
+  }, [markers]);
 
   // Handle focusLocation changes (when user clicks a cardinal direction)
   useEffect(() => {
@@ -278,7 +314,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     backLight.position.set(-300, -100, -250);
     scene.add(backLight);
 
-    // 4. Pin Lines
+    // 4. Ground Surface Anchor Beacons
     const pinGroup = new THREE.Group();
     globeGroup.add(pinGroup);
 
@@ -289,27 +325,18 @@ export const Globe3D: React.FC<Globe3DProps> = ({
 
       const currentMarkers = markersRef.current;
       currentMarkers.forEach((m) => {
-        const pinStemHeight = 18;
-        const surfacePos = latLngToVector3(m.lat, m.lng, globeRadius);
-        const elevatedPos = latLngToVector3(m.lat, m.lng, globeRadius + pinStemHeight);
+        const surfacePos = latLngToVector3(m.lat, m.lng, globeRadius + 0.4);
+        const color = getRegionColorHex(m.region);
 
-        const dotGeom = new THREE.SphereGeometry(1.2, 12, 12);
-        const dotMat = new THREE.MeshBasicMaterial({ color: 0xff3344 });
+        const dotGeom = new THREE.SphereGeometry(1.3, 16, 16);
+        const dotMat = new THREE.MeshBasicMaterial({ color });
         const dot = new THREE.Mesh(dotGeom, dotMat);
         dot.position.copy(surfacePos);
         pinGroup.add(dot);
-
-        const lineGeom = new THREE.BufferGeometry().setFromPoints([surfacePos, elevatedPos]);
-        const lineMat = new THREE.LineBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0.6,
-        });
-        const line = new THREE.Line(lineGeom, lineMat);
-        pinGroup.add(line);
       });
     };
     updatePins();
+    updatePinsRef.current = updatePins;
 
     // 5. Interaction: Drag to rotate
     let isDragging = false;
@@ -451,15 +478,13 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       const currentHeight = container.clientHeight;
 
       const projected = currentMarkers.map((marker) => {
-        const pinHeight = 18;
-        const elevatedLocal = latLngToVector3(marker.lat, marker.lng, globeRadius + pinHeight);
-        const surfaceLocal = latLngToVector3(marker.lat, marker.lng, globeRadius);
+        const pinHeight = 1.2; // Anchored directly on terrain surface
+        const surfaceLocal = latLngToVector3(marker.lat, marker.lng, globeRadius + pinHeight);
 
-        tempVec.copy(elevatedLocal);
+        tempVec.copy(surfaceLocal);
         globeGroup.localToWorld(tempVec);
 
-        const surfaceWorld = surfaceLocal.clone();
-        globeGroup.localToWorld(surfaceWorld);
+        const surfaceWorld = tempVec.clone();
 
         tempCameraDir.copy(camera.position).sub(surfaceWorld).normalize();
         const surfaceNormal = surfaceWorld.clone().normalize();
@@ -600,13 +625,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         </button>
       </div>
 
-      {/* 2D Projected Floating Marker Avatars */}
+      {/* 2D Projected Anchored Telematics Markers */}
       {projectedMarkers.map(({ marker, x, y, visible }, idx) => {
         if (!visible) return null;
 
-        const avatarSrc =
-          marker.src ||
-          `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(marker.label || 'tech')}`;
+        const color = getRegionColor(marker.region);
+        const count = marker.count ?? 1;
 
         return (
           <div
@@ -626,31 +650,44 @@ export const Globe3D: React.FC<Globe3DProps> = ({
             onMouseLeave={() => onMarkerHover?.(null)}
             className="group cursor-pointer transition-transform duration-150 hover:scale-125 z-20"
           >
-            <div className="relative flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-slate-800 border-2 border-cyan-400 shadow-[0_0_12px_rgba(77,166,255,0.7)] overflow-hidden">
-              <img
-                src={avatarSrc}
-                alt={marker.label || 'marker'}
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    'https://assets.aceternity.com/avatars/1.webp';
-                }}
-              />
+            {/* Ground Radar Pulse Ring */}
+            <div
+              className="absolute -inset-1 rounded-full animate-ping opacity-40 pointer-events-none"
+              style={{ backgroundColor: color }}
+            />
+
+            {/* Anchored Telematics Hub Beacon Badge */}
+            <div
+              className="relative flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-full border-2 border-white/95 text-white font-black text-[11px] shadow-lg select-none"
+              style={{
+                backgroundColor: color,
+                boxShadow: `0 0 10px ${color}bb`,
+              }}
+              title={`${marker.label} (${count} cases)`}
+            >
+              {count > 0 ? (
+                <span>{count}</span>
+              ) : (
+                <MapPin className="h-3 w-3 stroke-[2.5]" />
+              )}
             </div>
 
             {/* Hover Tooltip with Label + Region Badge (North / South / East / West) */}
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none whitespace-nowrap z-30 animate-in fade-in zoom-in-95 duration-100">
-              <div className="bg-slate-900/95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-md shadow-xl border border-slate-700 flex flex-col items-center gap-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span>{marker.label}</span>
-                  {marker.count !== undefined && (
-                    <span className="text-[10px] text-cyan-300">({marker.count})</span>
-                  )}
+              <div className="bg-slate-900/95 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xl border border-slate-700/80 flex flex-col items-center gap-0.5 backdrop-blur-md">
+                <div className="flex items-center gap-1.5 text-xs text-white">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="font-extrabold">{marker.label}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                  <span>{marker.lat.toFixed(2)}°, {marker.lng.toFixed(2)}°</span>
+                  <span className="text-cyan-300 font-bold bg-slate-950 px-1.5 py-0.2 rounded border border-slate-800">
+                    {count} {count === 1 ? 'case' : 'cases'}
+                  </span>
                 </div>
                 {marker.region && (
                   <span className="text-[9px] font-bold uppercase tracking-wider text-cyan-300 bg-cyan-950/80 px-1.5 py-0.2 rounded border border-cyan-800/60 mt-0.5">
-                    {marker.region} Zone
+                    {marker.region} Zone · Click to filter table
                   </span>
                 )}
               </div>

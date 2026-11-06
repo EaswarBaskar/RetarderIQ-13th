@@ -102,18 +102,13 @@
         );
       }
 
-      function confirmLeavingDiagnostic() {
+      function confirmLeavingDiagnostic(targetAction) {
         if (!hasUnfinishedDiagnostic()) return true;
-        if (typeof window.hasReachedFaultStep === 'function' && window.hasReachedFaultStep()) {
-          if (typeof window.showExitIntentPrompt === 'function') {
-            window.showExitIntentPrompt();
-            return false;
-          }
+        if (typeof window.showExitIntentPrompt === 'function') {
+          window.showExitIntentPrompt(typeof targetAction === 'function' ? targetAction : null);
+          return false;
         }
-        const message = typeof t === 'function'
-          ? t('unsaved_diagnostic_warning')
-          : 'This diagnostic is not finished. If you leave now, unsaved data may be lost. Continue?';
-        return window.confirm(message);
+        return false;
       }
 
       function isBlockingModalOpen() {
@@ -122,16 +117,13 @@
         return Boolean((modal && modal.style.display !== 'none') || (exitModal && exitModal.style.display !== 'none'));
       }
 
-      // Browsers intentionally replace custom beforeunload text with their
-      // own standard warning, but this still prevents accidental refresh/tab
-      // close while an unfinished diagnostic is active.
-      window.addEventListener('beforeunload', event => {
+      // Silently sync beacon on tab close without triggering the browser's
+      // generic "Reload site? Changes you made may not be saved." prompt.
+      window.addEventListener('beforeunload', () => {
         if (!hasUnfinishedDiagnostic()) return;
-        if (typeof window.syncFaultExitBeacon === 'function' && window.hasReachedFaultStep?.()) {
+        if (typeof window.syncFaultExitBeacon === 'function') {
           window.syncFaultExitBeacon();
         }
-        event.preventDefault();
-        event.returnValue = '';
       });
 
       window.addEventListener('popstate', event => {
@@ -146,49 +138,22 @@
           return;
         }
 
+        // Phone hardware/gesture Back button on Android while in diagnostic flow:
+        // Always display the custom friendly 2-button Exit Intent prompt.
+        if (hasUnfinishedDiagnostic()) {
+          if (typeof window.showExitIntentPrompt === 'function') {
+            window.showExitIntentPrompt();
+            const activeScreen = getVisibleDiagnosticScreen();
+            if (activeScreen && window.history?.pushState) {
+              window.history.pushState({ diagnosticScreen: activeScreen }, '', '#' + activeScreen);
+              lastNavigationScreen = activeScreen;
+            }
+            return;
+          }
+        }
+
         const previousScreen = event.state?.diagnosticScreen;
         if (!previousScreen) return;
-        const currentScreen = getVisibleDiagnosticScreen();
-
-        // Browser/mobile Back should undo the active diagnostic checkpoint
-        // before leaving the diagnostic screen.
-        if (hasUnfinishedDiagnostic()) {
-          if (typeof window.hasReachedFaultStep === 'function' && window.hasReachedFaultStep()) {
-            if (typeof window.showExitIntentPrompt === 'function') {
-              window.showExitIntentPrompt();
-              const activeScreen = getVisibleDiagnosticScreen();
-              if (activeScreen && window.history?.pushState) {
-                window.history.pushState({ diagnosticScreen: activeScreen }, '', '#' + activeScreen);
-                lastNavigationScreen = activeScreen;
-              }
-              return;
-            }
-          }
-          if (currentScreen === 'guidedFlowCard'
-            && typeof window.canGoBackDiagnostic === 'function'
-            && window.canGoBackDiagnostic()
-            && typeof window.handleDiagnosticBack === 'function') {
-            window.handleDiagnosticBack();
-            window.history.pushState({ diagnosticScreen: 'guidedFlowCard' }, '', '#guidedFlowCard');
-            lastNavigationScreen = 'guidedFlowCard';
-            return;
-          }
-          if (currentScreen === 'tmlCard'
-            && typeof window.canGoBackTmlStep === 'function'
-            && window.canGoBackTmlStep()
-            && typeof window.handleTmlBack === 'function') {
-            window.handleTmlBack();
-            window.history.pushState({ diagnosticScreen: 'tmlCard' }, '', '#tmlCard');
-            lastNavigationScreen = 'tmlCard';
-            return;
-          }
-        }
-
-        if (hasUnfinishedDiagnostic() && !confirmLeavingDiagnostic()) {
-          // Restore the current history entry when the technician cancels.
-          window.history.go(1);
-          return;
-        }
         showSection(previousScreen, { fromHistory: true });
       });
 
@@ -225,18 +190,14 @@
       function handleGlobalBack() {
         if (isBlockingModalOpen()) return;
         const screen = getVisibleDiagnosticScreen();
-        if ((screen === 'guidedFlowCard' || screen === 'tmlCard')
-          && typeof window.hasReachedFaultStep === 'function'
-          && window.hasReachedFaultStep()) {
+        // The in-app Back button (top right) while inside diagnostic:
+        // Trigger the friendly 2-button Exit Intent prompt so technicians can save & complete.
+        if (screen === 'guidedFlowCard' || screen === 'tmlCard') {
           if (typeof window.showExitIntentPrompt === 'function') {
-            window.showExitIntentPrompt();
+            const target = globalBackTargets[screen];
+            window.showExitIntentPrompt(target ? () => showSection(target) : null);
             return;
           }
-        }
-        if (screen === 'guidedFlowCard' && typeof window.handleDiagnosticBack === 'function' && window.canGoBackDiagnostic?.()) {
-          window.handleDiagnosticBack();
-          updateGlobalBackButton();
-          return;
         }
         if (screen === 'resultCard' && typeof window.retryFailedStep === 'function') {
           window.retryFailedStep();

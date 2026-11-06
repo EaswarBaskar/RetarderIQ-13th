@@ -1,4 +1,5 @@
 import { mockCases, mockUsers, getMockSummary } from './mockData';
+import { getSessionStatus, getRegion, getManufacturer, calculateFtrMetrics, caseHasPhoto } from '../lib/diagnosticUtils';
 
 export interface DiagnosticCase {
   id: string;
@@ -7,6 +8,7 @@ export interface DiagnosticCase {
   updated_at?: string;
   user_id?: string;
   payload: Record<string, any>;
+  part_orders?: any[];
 }
 
 export interface DiagnosticSummary {
@@ -251,22 +253,119 @@ export const api = {
       const status = String(params.status || '');
       const region = String(params.region || '').toLowerCase();
       const manufacturer = String(params.manufacturer || '').toLowerCase();
+      const language = String(params.language || '').toLowerCase();
+      const feedback = String(params.feedback || '').toLowerCase();
+      const kmRange = String(params.kmRange || '');
+      const dateFrom = String(params.dateFrom || '');
+      const dateTo = String(params.dateTo || '');
+      const repeatOnly = String(params.repeatOnly || '').toLowerCase() === 'true';
+      const firstTimeOnly = String(params.firstTimeOnly || '').toLowerCase() === 'true';
+      const hasPhoto = String(params.hasPhoto || params.photo || '').toLowerCase();
 
       let filtered = [...mockCases];
+      if (hasPhoto === 'has_photo' || hasPhoto === 'true' || hasPhoto === 'yes') {
+        filtered = filtered.filter((c) => caseHasPhoto(c.payload || {}));
+      } else if (hasPhoto === 'no_photo' || hasPhoto === 'false' || hasPhoto === 'no') {
+        filtered = filtered.filter((c) => !caseHasPhoto(c.payload || {}));
+      }
+      if (repeatOnly) {
+        const ftr = calculateFtrMetrics(mockCases);
+        const repeatIds = new Set(ftr.repeatCasesList.map((r) => r.caseNumber || (r as any).id));
+        filtered = filtered.filter((c) => repeatIds.has(c.case_number) || repeatIds.has(c.id));
+      } else if (firstTimeOnly) {
+        const ftr = calculateFtrMetrics(mockCases);
+        const repeatIds = new Set(ftr.repeatCasesList.map((r) => r.caseNumber || (r as any).id));
+        filtered = filtered.filter((c) => !repeatIds.has(c.case_number) && !repeatIds.has(c.id));
+      }
+
       if (search) {
         filtered = filtered.filter((c) => {
-          const text = JSON.stringify(c.payload).toLowerCase() + ' ' + c.case_number.toLowerCase();
+          const text = (JSON.stringify(c.payload) + ' ' + (c.case_number || '') + ' ' + (c.id || '')).toLowerCase();
+          if (search === 'ahmedabad' || search === 'ahemdabad') {
+            return text.includes('ahmedabad') || text.includes('ahemdabad');
+          }
+          if (search === 'mangaluru' || search === 'mangalore') {
+            return text.includes('mangaluru') || text.includes('mangalore');
+          }
+          if (search === 'morattandi' || search === 'morattandy' || search === 'மொரட்டாண்டி') {
+            return text.includes('மொரட்டாண்டி') || text.includes('morattandi') || text.includes('cuddalore');
+          }
+          if (search === 'calicut' || search === 'kozhikode') {
+            return text.includes('calicut') || text.includes('kozhikode');
+          }
+          if (search === 'kolkata') {
+            return text.includes('kolkata') || text.includes('howrah') || text.includes('sankrail') || text.includes('akhurhati');
+          }
           return text.includes(search);
         });
       }
       if (status) {
-        filtered = filtered.filter((c) => c.payload?.['Diagnostic Status'] === status);
+        filtered = filtered.filter((c) => {
+          const s = getSessionStatus(c.payload || {});
+          if (status === 'CLOSED_BY_ADMIN' || status === 'CLOSED BY ADMIN') {
+            return s === 'CLOSED_BY_ADMIN' || s === 'CLOSED BY ADMIN';
+          }
+          return s === status || c.payload?.['Diagnostic Status'] === status;
+        });
       }
       if (region) {
-        filtered = filtered.filter((c) => String(c.payload?.Region || '').toLowerCase() === region);
+        filtered = filtered.filter((c) => {
+          const r = String(c.payload?.Region || getRegion(c.payload || {})).toLowerCase();
+          return r === region;
+        });
       }
       if (manufacturer) {
-        filtered = filtered.filter((c) => String(c.payload?.['Vehicle Manufacturer'] || '').toLowerCase() === manufacturer);
+        filtered = filtered.filter((c) => {
+          const m = String(getManufacturer(c.payload || {})).toLowerCase();
+          return m.includes(manufacturer);
+        });
+      }
+      if (language) {
+        filtered = filtered.filter((c) => {
+          const l = String(c.payload?.['Diagnostic Language Name'] || c.payload?.['Diagnostic Language'] || 'English').toLowerCase();
+          return l.includes(language);
+        });
+      }
+      if (feedback) {
+        filtered = filtered.filter((c) => {
+          const fb = c.payload?.['Diagnostic Feedback'];
+          let score = '';
+          if (typeof fb === 'object' && fb !== null) {
+            score = String(fb.clarity ?? fb.rating ?? fb.score ?? '');
+          } else if (fb) {
+            score = String(fb);
+          }
+          if (feedback === 'none') {
+            return !score || score === '0';
+          }
+          return score.startsWith(feedback);
+        });
+      }
+      if (kmRange) {
+        filtered = filtered.filter((c) => {
+          const raw = c.payload?.['Odometer Km'] ?? c.payload?.['Kms & Date of Sale'] ?? '';
+          const match = String(raw).replace(/,/g, '').match(/\d+(?:\.\d+)?/);
+          if (!match) return false;
+          const km = parseFloat(match[0]);
+          if (kmRange === '0-50000') return km <= 50000;
+          if (kmRange === '50001-100000') return km > 50000 && km <= 100000;
+          if (kmRange === '100001-plus') return km > 100000;
+          return true;
+        });
+      }
+      if (dateFrom) {
+        const fromMs = new Date(dateFrom).getTime();
+        filtered = filtered.filter((c) => {
+          const t = new Date(c.created_at || c.payload?.['Complaint Attended on'] || 0).getTime();
+          return t >= fromMs;
+        });
+      }
+      if (dateTo) {
+        const toMs = new Date(dateTo).getTime() + (24 * 60 * 60 * 1000 - 1);
+        filtered = filtered.filter((c) => {
+          const t = new Date(c.created_at || c.payload?.['Complaint Attended on'] || 0).getTime();
+          return t <= toMs;
+        });
       }
 
       const total = filtered.length;
@@ -308,7 +407,7 @@ export const api = {
 
   async getCaseDetail(id: string): Promise<DiagnosticCase> {
     if (isMockMode()) {
-      const item = mockCases.find((c) => c.id === id);
+      const item = mockCases.find((c) => c.id === id || c.case_number === id);
       if (!item) throw new Error('Case not found');
       return item;
     }

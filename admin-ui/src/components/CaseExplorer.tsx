@@ -4,7 +4,7 @@ import { Button } from './ui/Button';
 import { Input, Select } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { DiagnosticCase, Pagination } from '../services/api';
-import { getSessionStatus } from '../lib/diagnosticUtils';
+import { getSessionStatus, caseHasPhoto } from '../lib/diagnosticUtils';
 import {
   Search,
   Filter,
@@ -18,9 +18,12 @@ import {
   PhoneCall,
   Check,
   X,
+  Download,
+  Camera,
 } from 'lucide-react';
 
 interface CaseExplorerProps {
+  id?: string;
   cases: DiagnosticCase[];
   pagination: Pagination;
   loading: boolean;
@@ -29,9 +32,12 @@ interface CaseExplorerProps {
   onViewCase: (caseId: string) => void;
   onDeleteCases: (ids: string[]) => Promise<void>;
   statusFilterValue?: string;
+  activeFilters?: Record<string, string>;
+  onExportCsv?: () => void;
 }
 
 export const CaseExplorer: React.FC<CaseExplorerProps> = ({
+  id = 'case-explorer',
   cases,
   pagination,
   loading,
@@ -40,6 +46,8 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
   onViewCase,
   onDeleteCases,
   statusFilterValue = '',
+  activeFilters = {},
+  onExportCsv,
 }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -49,7 +57,9 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
   const handleWhatsApp = (item: DiagnosticCase) => {
     const p = item.payload || {};
     const fse = p['FSE Name'] || 'Electrician';
-    const vehicle = p['Vehicle Registration No.'] || p['Chassis No.'] || 'vehicle';
+    const rawReg = String(p['Vehicle Registration No.'] || '').trim();
+    const rawChassis = String(p['Chassis No.'] || '').trim();
+    const vehicle = (rawReg && rawReg !== '-') ? rawReg : (rawChassis && rawChassis !== '-' ? rawChassis : 'vehicle');
     const cId = item.case_number || p['Diagnostic Case ID'] || item.id;
     const confirmUrl = `${window.location.origin}/confirm.html?c=${encodeURIComponent(cId)}`;
     const message = `Hi ${fse}, RetarderIQ showed a fault on vehicle ${vehicle}. Did you rectify the issue? Tap here to confirm in 1 second: ${confirmUrl}`;
@@ -80,11 +90,25 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
   const [kmRange, setKmRange] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [hasPhoto, setHasPhoto] = useState(activeFilters.hasPhoto || '');
 
-  // Keep status in sync if prop changes (e.g. from KPI click)
+  // Keep filters in sync if activeFilters or statusFilterValue changes (e.g. from chart/KPI click)
   React.useEffect(() => {
-    setStatus(statusFilterValue);
-  }, [statusFilterValue]);
+    if (activeFilters) {
+      setSearch(activeFilters.search || '');
+      setStatus(activeFilters.status || statusFilterValue || '');
+      setRegion(activeFilters.region || '');
+      setManufacturer(activeFilters.manufacturer || '');
+      setLanguage(activeFilters.language || '');
+      setFeedback(activeFilters.feedback || '');
+      setKmRange(activeFilters.kmRange || '');
+      setDateFrom(activeFilters.dateFrom || '');
+      setDateTo(activeFilters.dateTo || '');
+      setHasPhoto(activeFilters.hasPhoto || '');
+    } else {
+      setStatus(statusFilterValue);
+    }
+  }, [activeFilters, statusFilterValue]);
 
   const triggerFilter = (overrides: Record<string, string> = {}) => {
     const current = {
@@ -97,6 +121,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
       kmRange,
       dateFrom,
       dateTo,
+      hasPhoto,
       ...overrides,
     };
     onFilterChange(current);
@@ -117,6 +142,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
     setKmRange('');
     setDateFrom('');
     setDateTo('');
+    setHasPhoto('');
     onFilterChange({
       search: '',
       status: '',
@@ -127,6 +153,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
       kmRange: '',
       dateFrom: '',
       dateTo: '',
+      hasPhoto: '',
     });
   };
 
@@ -182,7 +209,7 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
   };
 
   return (
-    <Card className="mb-6">
+    <Card id={id} className="mb-6 scroll-mt-6">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
         <div>
           <CardTitle>Case Explorer</CardTitle>
@@ -202,6 +229,19 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" />
               Delete Selected ({selectedIds.size})
+            </Button>
+          )}
+
+          {onExportCsv && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportCsv}
+              className="text-xs font-semibold"
+              title="Download diagnostic cases as CSV"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
+              Export CSV
             </Button>
           )}
 
@@ -235,6 +275,57 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
           </div>
         )}
 
+        {activeFilters?.repeatOnly === 'true' && (
+          <div className="mb-4 bg-rose-50 border border-rose-300 text-rose-950 text-xs px-3.5 py-2.5 rounded-lg flex items-center justify-between animate-in fade-in shadow-xs">
+            <span className="font-bold flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-600 animate-pulse" />
+              Showing 5 Repeat Complaint Reports (Vehicles returning for diagnosis within 30 days)
+            </span>
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...activeFilters, repeatOnly: '' })}
+              className="text-xs font-bold text-rose-700 hover:text-rose-900 underline cursor-pointer"
+            >
+              Clear Repeat Filter
+            </button>
+          </div>
+        )}
+
+        {activeFilters?.firstTimeOnly === 'true' && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs px-3.5 py-2.5 rounded-lg flex items-center justify-between animate-in fade-in shadow-xs">
+            <span className="font-bold flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+              Showing First-Time Right Reports (Resolved without 30-day repeat visit)
+            </span>
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...activeFilters, firstTimeOnly: '' })}
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+            >
+              Clear Filter
+            </button>
+          </div>
+        )}
+
+        {activeFilters?.hasPhoto === 'has_photo' && (
+          <div className="mb-4 bg-sky-50 border border-sky-300 text-sky-950 text-xs px-3.5 py-2.5 rounded-lg flex items-center justify-between animate-in fade-in shadow-xs">
+            <span className="font-bold flex items-center gap-2">
+              <Camera className="h-4 w-4 text-sky-600 shrink-0" />
+              Showing Diagnostic Reports with Attached Photo Evidence
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setHasPhoto('');
+                onFilterChange({ ...activeFilters, hasPhoto: '' });
+              }}
+              className="text-xs font-bold text-sky-700 hover:text-sky-900 underline cursor-pointer"
+            >
+              Clear Photo Filter
+            </button>
+          </div>
+        )}
+
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-3">
           <div className="relative flex-1">
@@ -249,7 +340,25 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
           <Button type="submit" size="sm" className="h-9 px-4 text-xs font-semibold">
             Search
           </Button>
-          {(search || status || region || manufacturer || language || feedback || kmRange || dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = hasPhoto === 'has_photo' ? '' : 'has_photo';
+              setHasPhoto(next);
+              triggerFilter({ hasPhoto: next });
+            }}
+            className={`h-9 px-3 text-xs font-semibold rounded-md border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+              hasPhoto === 'has_photo'
+                ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+            }`}
+            title="Filter reports that have attached photo evidence from technicians"
+          >
+            <Camera className="h-3.5 w-3.5" />
+            <span>With Photo</span>
+            {hasPhoto === 'has_photo' && <Check className="h-3 w-3 ml-0.5" />}
+          </button>
+          {(search || status || region || manufacturer || language || feedback || kmRange || dateFrom || dateTo || hasPhoto) && (
             <Button
               type="button"
               variant="ghost"
@@ -302,7 +411,6 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                 <option value="East">East (E)</option>
                 <option value="West">West (W)</option>
                 <option value="South">South (S)</option>
-                <option value="Central">Central</option>
                 <option value="Other">Other</option>
               </Select>
             </div>
@@ -382,6 +490,25 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
             </div>
 
             <div>
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Camera className="h-3 w-3 text-slate-500" />
+                Photo Evidence
+              </label>
+              <Select
+                value={hasPhoto}
+                onChange={(e) => {
+                  setHasPhoto(e.target.value);
+                  triggerFilter({ hasPhoto: e.target.value });
+                }}
+                className="h-8 text-xs bg-white"
+              >
+                <option value="">All (With & Without Photo)</option>
+                <option value="has_photo">📷 With Photo Evidence</option>
+                <option value="no_photo">No Photo Attached</option>
+              </Select>
+            </div>
+
+            <div>
               <label className="block font-semibold text-slate-600 mb-1">From Date</label>
               <input
                 type="date"
@@ -452,7 +579,9 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                   const isChecked = selectedIds.has(item.id);
                   const caseId = item.case_number || p['Diagnostic Case ID'] || item.id.substring(0, 8);
                   const fseName = p['FSE Name'] || '-';
-                  const vehicle = p['Vehicle Registration No.'] || p['Chassis No.'] || '-';
+                  const rawReg = String(p['Vehicle Registration No.'] || '').trim();
+                  const rawChassis = String(p['Chassis No.'] || '').trim();
+                  const vehicle = (rawReg && rawReg !== '-') ? rawReg : (rawChassis && rawChassis !== '-' ? rawChassis : '-');
                   const lang = p['Diagnostic Language Name'] || p['Diagnostic Language'] || 'English';
                   const dealer = p['Dealer / Location'] || '-';
                   const part = p['Recommended Part No.'] || p['Suspected Product'] || '-';
@@ -473,14 +602,42 @@ export const CaseExplorer: React.FC<CaseExplorerProps> = ({
                           className="h-4 w-4 rounded border-slate-300 text-[#0b5daa] focus:ring-[#0b5daa]"
                         />
                       </td>
-                      <td className="p-3 font-semibold text-slate-900">{caseId}</td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-900">{caseId}</span>
+                          {caseHasPhoto(p) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onViewCase(item.id);
+                              }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 hover:bg-sky-200 border border-sky-300 transition-colors cursor-pointer shrink-0"
+                              title="Diagnostic report contains attached photo evidence — click to view"
+                            >
+                              <Camera className="h-3 w-3 text-sky-600" />
+                              Photo
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-3 text-slate-500 whitespace-nowrap">
-                        {new Date(item.created_at).toLocaleDateString()}
+                        {p['Complaint Attended on'] ||
+                          (item.created_at && !isNaN(new Date(item.created_at).getTime())
+                            ? new Date(item.created_at).toLocaleDateString()
+                            : '-')}
                       </td>
                       <td className="p-3">{getStatusBadge(p)}</td>
                       <td className="p-3 text-slate-700 font-medium">{fseName}</td>
                       <td className="p-3 text-slate-700">
-                        <div className="font-mono font-semibold text-slate-900 text-[11px]">{vehicle}</div>
+                        <div className="flex items-center gap-1.5 font-mono font-semibold text-slate-900 text-[11px]">
+                          <span>{vehicle}</span>
+                          {(activeFilters?.repeatOnly === 'true' || String(p['Repeat complaint? Yes / No'] || '').toLowerCase() === 'yes') && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-100 text-rose-700 border border-rose-200 shrink-0">
+                              REPEAT ≤30d
+                            </span>
+                          )}
+                        </div>
                         {p['Travels Name'] && (
                           <div className="text-[10px] font-semibold text-[#0b5daa] mt-0.5 truncate max-w-[140px]" title={p['Travels Name']}>
                             {p['Travels Name']}
